@@ -12,7 +12,7 @@ import ChiSquareResultsDisplay from '@/components/simulation/ChiSquareResultsDis
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import type { ParkingZoneData, ParkingSpaceData, SimulationParams, SimulationStats, EventLogEntry, ChiSquareResult } from '@/types';
-import { exponential, normal, setPrng, getPrngInitializationSeed } from '@/lib/random';
+import { exponential, normal, setPrng, getPrngInitializationSeed, McgConfig } from '@/lib/random';
 import { performChiSquareTest } from '@/lib/chiSquare';
 import { ArrowRight, BarChartBig, MonitorPlay, Pause, Play, RefreshCcw, RotateCcw, Settings2 } from 'lucide-react';
 
@@ -44,6 +44,10 @@ const initialParams: SimulationParams = {
   simulationSpeed: 10,
   prngMethod: 'Math.random',
   prngSeed: 1, 
+  mcg_a: 1664525,
+  mcg_c: 1013904223,
+  mcg_m: 2**32,
+  mcg_seed: 1,
   chiSquareSampleSize: 1000,
   chiSquareNumBins: 10,
   simulationStartTime: 6 * 60, 
@@ -86,9 +90,10 @@ export default function ParkSimPage() {
 
   useEffect(() => {
     setMounted(true);
-    // Initialize PRNG when component mounts, using a deterministic placeholder if no seed is set
-    // This ensures server and client have a consistent starting point if random numbers are needed before user interaction.
-    setPrng(initialParams.prngMethod, initialParams.prngSeed);
+    // Initialize PRNG when component mounts
+    const seed = params.prngMethod === 'MixedCongruential' ? params.mcg_seed : params.prngSeed;
+    const mcgConfig = params.prngMethod === 'MixedCongruential' ? { a: params.mcg_a, c: params.mcg_c, m: params.mcg_m } : undefined;
+    setPrng(params.prngMethod, seed, mcgConfig);
     setStats(getInitialStats(params.simulationStartTime)); 
   }, []); 
 
@@ -108,7 +113,7 @@ export default function ParkSimPage() {
         setZones(JSON.parse(JSON.stringify(initialZones))); // Reset zones to initial state
         updateStatistics(); // Update stats based on reset state
     }
-  }, [params.simulationStartTime, params.simulationEndTime, params.prngMethod, params.prngSeed]);
+  }, [params.simulationStartTime, params.simulationEndTime, params.prngMethod, params.prngSeed, params.mcg_a, params.mcg_c, params.mcg_m, params.mcg_seed]);
 
 
   const addEvent = useCallback((message: string) => {
@@ -285,10 +290,17 @@ export default function ParkSimPage() {
   const handleParamChange = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
     setParams(prev => {
       const newParams = { ...prev, [key]: value };
-      if (key === 'prngMethod' || (key === 'prngSeed' && (newParams.prngMethod === 'LCG' || newParams.prngMethod === 'Mersenne-Twister'))) {
-        setPrng(newParams.prngMethod, newParams.prngSeed);
-        setChiSquareResults(null); // Invalidate Chi-Square results if PRNG/seed changes
+      const isMcgRelated = ['prngMethod', 'mcg_a', 'mcg_c', 'mcg_m', 'mcg_seed'].includes(key as string);
+      const isOtherSeedablePrng = ['prngMethod', 'prngSeed'].includes(key as string) && newParams.prngMethod !== 'MixedCongruential';
+
+
+      if (isMcgRelated || isOtherSeedablePrng) {
+        const seed = newParams.prngMethod === 'MixedCongruential' ? newParams.mcg_seed : newParams.prngSeed;
+        const mcgConfig = newParams.prngMethod === 'MixedCongruential' ? { a: newParams.mcg_a, c: newParams.mcg_c, m: newParams.mcg_m } : undefined;
+        setPrng(newParams.prngMethod, seed, mcgConfig);
+        setChiSquareResults(null); // Invalidate Chi-Square results if PRNG/seed/MCG params change
       }
+      
       // If simulation time range changes WHILE IN CONFIG STEP and NOT RUNNING, reset key simulation variables
       if ((key === 'simulationStartTime' || key === 'simulationEndTime') && !isRunning && currentStep === 1) {
          setStats(getInitialStats(newParams.simulationStartTime)); // Reset stats with new start time
@@ -327,7 +339,12 @@ export default function ParkSimPage() {
 
     setIsRunning(true);
     addEvent("Simulación iniciada/continuada.");
-    setPrng(params.prngMethod, params.prngSeed); // Re-seed PRNG on every start/resume for consistency if seed is used
+    
+    // Re-seed PRNG on every start/resume
+    const seed = params.prngMethod === 'MixedCongruential' ? params.mcg_seed : params.prngSeed;
+    const mcgConfig = params.prngMethod === 'MixedCongruential' ? { a: params.mcg_a, c: params.mcg_c, m: params.mcg_m } : undefined;
+    setPrng(params.prngMethod, seed, mcgConfig);
+
     // Recalculate next arrival if it was 0 (e.g., on first start or after reset)
     if(nextArrivalDueRef.current <=0 ) { 
         let meanArrival;
@@ -357,8 +374,11 @@ export default function ParkSimPage() {
     eventIdCounter = 0;
     
     handleActualStart(); // Attempt to start the simulation logic
-    if (stats.simulationClock < params.simulationEndTime) { // Check again in case handleActualStart set isRunning to false
+    if (stats.simulationClock < params.simulationEndTime && isRunning) { 
       setCurrentStep(2);
+    } else if (!isRunning && params.simulationStartTime < params.simulationEndTime) {
+       // If handleActualStart failed (e.g. validation), but times are valid, stay in config
+       // If it sets isRunning to true it will move.
     }
   };
 
@@ -378,7 +398,10 @@ export default function ParkSimPage() {
     departedVehiclesCountRef.current = 0;
     nextArrivalDueRef.current = 0;
     eventIdCounter = 0;
-    setPrng(initialParams.prngMethod, initialParams.prngSeed); // Reset PRNG to defaults
+    // Reset PRNG to defaults
+    const seed = initialParams.prngMethod === 'MixedCongruential' ? initialParams.mcg_seed : initialParams.prngSeed;
+    const mcgConfig = initialParams.prngMethod === 'MixedCongruential' ? { a: initialParams.mcg_a, c: initialParams.mcg_c, m: initialParams.mcg_m } : undefined;
+    setPrng(initialParams.prngMethod, seed, mcgConfig);
     addEvent("Simulación reiniciada a valores por defecto.");
     toast({ title: "Simulación Reiniciada", description: "Todos los parámetros y estados han sido restaurados." });
     updateStatistics(); // Update display with reset stats
@@ -394,13 +417,16 @@ export default function ParkSimPage() {
       toast({ title: "Prueba Chi-cuadrado", description: "Detenga la simulación para ejecutar la prueba.", variant: "destructive" });
       return;
     }
-    // Use the currently configured seed for the test if the PRNG method is seedable
-    const seedForTest = (params.prngMethod !== 'Math.random') ? params.prngSeed : undefined;
+    
+    const seedForTest = params.prngMethod === 'MixedCongruential' ? params.mcg_seed : params.prngSeed;
+    const mcgConfigForTest = params.prngMethod === 'MixedCongruential' ? { a: params.mcg_a, c: params.mcg_c, m: params.mcg_m } : undefined;
+
     const results = await performChiSquareTest(
       params.chiSquareSampleSize,
       params.chiSquareNumBins,
       params.prngMethod,
-      seedForTest 
+      (params.prngMethod !== 'Math.random') ? seedForTest : undefined,
+      mcgConfigForTest
     );
     setChiSquareResults(results);
     toast({ title: "Prueba Chi-cuadrado Completada", description: `Método: ${params.prngMethod}, N=${params.chiSquareSampleSize}, K=${params.chiSquareNumBins}` });

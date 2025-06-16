@@ -12,7 +12,7 @@ interface ChiSquareResultsDisplayProps {
 }
 
 const ChiSquareResultsDisplay: React.FC<ChiSquareResultsDisplayProps> = ({ results }) => {
-  const { statistic, degreesOfFreedom, N, K, prngMethodUsed, prngSeedUsed, interpretation, observedFrequencies, expectedFrequencies } = results;
+  const { statistic, degreesOfFreedom, N, K, prngMethodUsed, prngSeedUsed, mcgParamsUsed, interpretation, observedFrequencies, expectedFrequencies } = results;
 
   const chartData = observedFrequencies && expectedFrequencies ? observedFrequencies.map((obs, index) => ({
     name: `Intervalo ${index + 1}`,
@@ -24,6 +24,16 @@ const ChiSquareResultsDisplay: React.FC<ChiSquareResultsDisplayProps> = ({ resul
   // A proper test involves comparing the statistic to a critical value from Chi-squared distribution table (or p-value).
   const isPotentiallyGoodFit = degreesOfFreedom > 0 ? statistic <= degreesOfFreedom * 2.5 : false; // Avoid issues if df=0
 
+  let prngDetails = `PRNG: ${prngMethodUsed}`;
+  if (prngMethodUsed !== 'Math.random' && prngSeedUsed !== undefined) {
+    prngDetails += ` (Semilla: ${prngSeedUsed})`;
+  }
+  if (prngMethodUsed === 'MixedCongruential' && mcgParamsUsed) {
+    prngDetails += ` (a: ${mcgParamsUsed.a}, c: ${mcgParamsUsed.c}, m: ${mcgParamsUsed.m})`;
+  }
+  prngDetails += ` | N=${N}, K=${K}`;
+
+
   return (
     <Card className="shadow-lg mt-4">
       <CardHeader className="pb-2">
@@ -32,7 +42,7 @@ const ChiSquareResultsDisplay: React.FC<ChiSquareResultsDisplayProps> = ({ resul
           Resultados Prueba Chi-cuadrado
         </CardTitle>
         <CardDescription>
-          PRNG: {prngMethodUsed} {prngMethodUsed !== 'Math.random' && prngSeedUsed !== undefined ? `(Semilla: ${prngSeedUsed})` : ''} | N={N}, K={K}
+          {prngDetails}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 pt-2">
@@ -67,3 +77,4 @@ const ChiSquareResultsDisplay: React.FC<ChiSquareResultsDisplayProps> = ({ resul
 };
 
 export default ChiSquareResultsDisplay;
+

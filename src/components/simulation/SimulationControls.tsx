@@ -48,9 +48,11 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
   const handleIntegerInputChange = (key: keyof SimulationParams, event: React.ChangeEvent<HTMLInputElement>) => {
     let value = parseInt(event.target.value, 10);
     if (!isNaN(value)) {
+        // For 'mcg_m', ensure it's at least 1 if user clears and re-types.
+        if (key === 'mcg_m' && value <= 0) value = 1;
         onParamChange(key, value as any);
     } else if (event.target.value === "") {
-        onParamChange(key, 0 as any);
+        onParamChange(key, (key === 'mcg_m' ? 1 : 0) as any);
     }
   };
 
@@ -77,7 +79,8 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
   const getHourFromMinutes = (totalMinutes: number) => Math.floor(totalMinutes / 60);
   const getMinuteFromMinutes = (totalMinutes: number) => totalMinutes % 60;
 
-  const isSeedablePrng = params.prngMethod === 'LCG' || params.prngMethod === 'Mersenne-Twister'; // Removed ALEA
+  const isSeedablePrng = params.prngMethod === 'LCG' || params.prngMethod === 'Mersenne-Twister';
+  const isMcgPrng = params.prngMethod === 'MixedCongruential';
 
   return (
     <TooltipProvider>
@@ -161,9 +164,8 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
                     <SelectContent>
                         <SelectItem value="Math.random">Math.random (Nativo)</SelectItem>
                         <SelectItem value="LCG">LCG (Congruencial Lineal)</SelectItem>
+                        <SelectItem value="MixedCongruential">Congruencial Mixto</SelectItem>
                         <SelectItem value="Mersenne-Twister">Mersenne-Twister (random-js)</SelectItem>
-                        {/* Removed ALEA SelectItem */}
-                        {/* <SelectItem value="ALEA">ALEA (random-js)</SelectItem> */}
                     </SelectContent>
                 </Select>
             </div>
@@ -175,8 +177,48 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
                     onChange={(e) => handleIntegerInputChange('prngSeed', e)} 
                     min={1} 
                     step={1}
-                    tooltip="Semilla inicial para el PRNG seleccionado (si aplica). Cambiarla reinicia la secuencia."
+                    tooltip="Semilla inicial para LCG o Mersenne-Twister. Cambiarla reinicia la secuencia."
                 />
+            )}
+            {isMcgPrng && (
+              <>
+                <InputControl 
+                    label="Semilla MCG (X0)" 
+                    id="mcg_seed" 
+                    value={params.mcg_seed} 
+                    onChange={(e) => handleIntegerInputChange('mcg_seed', e)} 
+                    min={0} 
+                    step={1}
+                    tooltip="Semilla inicial (X0) para el Generador Congruencial Mixto."
+                />
+                <InputControl 
+                    label="Multiplicador (a)" 
+                    id="mcg_a" 
+                    value={params.mcg_a} 
+                    onChange={(e) => handleIntegerInputChange('mcg_a', e)} 
+                    min={0} 
+                    step={1}
+                    tooltip="Parámetro 'a' (multiplicador) para MCG."
+                />
+                <InputControl 
+                    label="Incremento (c)" 
+                    id="mcg_c" 
+                    value={params.mcg_c} 
+                    onChange={(e) => handleIntegerInputChange('mcg_c', e)} 
+                    min={0} 
+                    step={1}
+                    tooltip="Parámetro 'c' (incremento) para MCG."
+                />
+                <InputControl 
+                    label="Módulo (m)" 
+                    id="mcg_m" 
+                    value={params.mcg_m} 
+                    onChange={(e) => handleIntegerInputChange('mcg_m', e)} 
+                    min={1} 
+                    step={1}
+                    tooltip="Parámetro 'm' (módulo) para MCG. Debe ser > 0."
+                />
+              </>
             )}
         </ControlGroup>
 
@@ -242,3 +284,4 @@ const InputControl: React.FC<{label: string, id: string, value: number, onChange
 );
 
 export default SimulationControls;
+

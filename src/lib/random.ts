@@ -1,25 +1,22 @@
 
 import type { PrngMethodType } from '@/types';
-// According to random-js@2.1.0 type definitions, Alea (uppercase) is the correct export.
-// If this line causes "Export Alea doesn't exist", there might be an issue with
-// the random-js package's ESM build or its resolution in your Next.js environment.
-import { Random, MersenneTwister19937 } from 'random-js'; // Removed Alea from import
+import { Random, MersenneTwister19937 } from 'random-js';
 
 // LCG parameters
 const LCG_A = 1664525;
 const LCG_C = 1013904223;
 const LCG_M = 2**32;
-let lcgInternalSeed = 1; // Specific to custom LCG
+let lcgInternalSeed = 1; // Specific to custom LCG or MCG current value X_n
+
+// MCG parameters - these are the actual a, c, m for MCG
+let mcg_a_internal = 1664525; // Default, can be configured
+let mcg_c_internal = 1013904223; // Default, can be configured
+let mcg_m_internal = 2**32;    // Default, can be configured
 
 let currentPrngMethod: PrngMethodType = 'Math.random';
-let currentPrngInitSeed: number | undefined = undefined; // General seed used for PRNG initialization
+let currentPrngInitSeed: number | undefined = undefined; // General seed used for PRNG initialization (X0 for LCG/MCG, or seed for MT)
 
-// Initialize with a deterministic placeholder to prevent Math.random usage before setPrng.
-let activeGeneratorInternal: () => number = () => {
-  // This function should not be called before setPrng initializes it.
-  // Returning a constant ensures server/client consistency if it's called prematurely.
-  return 0.5;
-};
+let activeGeneratorInternal: () => number = () => 0.5; // Deterministic placeholder
 let randomJsInstance: Random | null = null;
 
 export function getActivePrngMethod(): PrngMethodType {
@@ -38,14 +35,20 @@ export function getActiveGenerator(): () => number {
     return activeGeneratorInternal;
 }
 
-export function setPrng(method: PrngMethodType, seed?: number) {
+export interface McgConfig {
+  a: number;
+  c: number;
+  m: number;
+}
+
+export function setPrng(method: PrngMethodType, seed?: number, mcgConfig?: McgConfig) {
   currentPrngMethod = method;
   currentPrngInitSeed = seed;
 
-  const effectiveSeed = seed !== undefined ? seed : Date.now();
+  const effectiveSeed = seed !== undefined ? Math.abs(Math.floor(seed)) || 1 : Date.now();
 
   if (method === 'LCG') {
-    lcgInternalSeed = Math.abs(Math.floor(effectiveSeed)) || 1;
+    lcgInternalSeed = effectiveSeed; // This is X0, then X_n for LCG
     activeGeneratorInternal = () => {
       lcgInternalSeed = (LCG_A * lcgInternalSeed + LCG_C) % LCG_M;
       return lcgInternalSeed / LCG_M;
@@ -55,10 +58,30 @@ export function setPrng(method: PrngMethodType, seed?: number) {
     const engine = MersenneTwister19937.seed(effectiveSeed);
     randomJsInstance = new Random(engine);
     activeGeneratorInternal = () => randomJsInstance!.realZeroToOneExclusive();
+  } else if (method === 'MixedCongruential') {
+    if (mcgConfig) {
+      mcg_a_internal = mcgConfig.a >= 0 ? mcgConfig.a : 1664525;
+      mcg_c_internal = mcgConfig.c >= 0 ? mcgConfig.c : 1013904223;
+      mcg_m_internal = mcgConfig.m > 0 ? mcgConfig.m : 2**32;
+    } else {
+      // Fallback to defaults if no config provided, though UI should ensure it is.
+      mcg_a_internal = 1664525;
+      mcg_c_internal = 1013904223;
+      mcg_m_internal = 2**32;
+    }
+    lcgInternalSeed = effectiveSeed % mcg_m_internal; // This is X0, then X_n for MCG. Ensure seed is < m.
+    if (lcgInternalSeed < 0) lcgInternalSeed += mcg_m_internal;
+
+
+    activeGeneratorInternal = () => {
+      lcgInternalSeed = (mcg_a_internal * lcgInternalSeed + mcg_c_internal) % mcg_m_internal;
+      return lcgInternalSeed / mcg_m_internal;
+    };
+    randomJsInstance = null;
   } else { // Math.random
     activeGeneratorInternal = Math.random;
     randomJsInstance = null;
-    currentPrngInitSeed = undefined;
+    currentPrngInitSeed = undefined; // Math.random doesn't use a configurable seed
   }
 }
 

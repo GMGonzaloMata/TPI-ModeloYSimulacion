@@ -1,13 +1,14 @@
 
 'use server';
 import type { ChiSquareResult, PrngMethodType } from '@/types';
-import { setPrng, getActivePrngMethod, getPrngInitializationSeed, getActiveGenerator } from './random';
+import { setPrng, getActivePrngMethod, getPrngInitializationSeed, getActiveGenerator, McgConfig } from './random';
 
-export async function generateSamples(count: number, method: PrngMethodType, seed?: number): Promise<number[]> {
+export async function generateSamples(count: number, method: PrngMethodType, seed?: number, mcgConfig?: McgConfig): Promise<number[]> {
   const originalMethod = getActivePrngMethod();
   const originalSeed = getPrngInitializationSeed();
+  // TODO: Store and restore original MCG config if it was the original method. For now, this is simplified.
 
-  setPrng(method, seed); // Temporarily set PRNG for sample generation
+  setPrng(method, seed, mcgConfig); // Temporarily set PRNG for sample generation
 
   const samples: number[] = [];
   const currentGeneratorForTest = getActiveGenerator(); 
@@ -16,7 +17,10 @@ export async function generateSamples(count: number, method: PrngMethodType, see
     samples.push(currentGeneratorForTest());
   }
   
-  setPrng(originalMethod, originalSeed); // Restore original PRNG state
+  // Restore original PRNG state. If original was MCG, its specific params are restored by setPrng if called with them.
+  // This simplified restoration might not perfectly restore MCG params if the original was MCG and the test was different.
+  // However, the main page re-initializes PRNG on param changes anyway.
+  setPrng(originalMethod, originalSeed); 
   return samples;
 }
 
@@ -24,7 +28,8 @@ export async function performChiSquareTest(
   N: number, 
   K: number, 
   prngMethod: PrngMethodType,
-  prngSeedForTest?: number 
+  prngSeedForTest?: number,
+  mcgConfigForTest?: McgConfig
 ): Promise<ChiSquareResult> {
   if (N <= 0 || K <= 1 || N < K * 5) { 
     return {
@@ -34,13 +39,14 @@ export async function performChiSquareTest(
       K,
       prngMethodUsed: prngMethod,
       prngSeedUsed: (prngMethod !== 'Math.random' && prngSeedForTest !== undefined) ? prngSeedForTest : undefined,
+      mcgParamsUsed: prngMethod === 'MixedCongruential' ? mcgConfigForTest : undefined,
       interpretation: "N debe ser mayor que 0, K mayor que 1, y N >= K*5 para una prueba válida.",
       observedFrequencies: [],
       expectedFrequencies: [],
     };
   }
 
-  const samples = await generateSamples(N, prngMethod, (prngMethod !== 'Math.random') ? prngSeedForTest : undefined);
+  const samples = await generateSamples(N, prngMethod, (prngMethod !== 'Math.random') ? prngSeedForTest : undefined, mcgConfigForTest);
 
   const observedFrequencies = new Array(K).fill(0);
   const expectedFrequency = N / K;
@@ -53,6 +59,7 @@ export async function performChiSquareTest(
       K,
       prngMethodUsed: prngMethod,
       prngSeedUsed: (prngMethod !== 'Math.random' && prngSeedForTest !== undefined) ? prngSeedForTest : undefined,
+      mcgParamsUsed: prngMethod === 'MixedCongruential' ? mcgConfigForTest : undefined,
       interpretation: "La frecuencia esperada es 0, no se puede calcular Chi-cuadrado. Verifique N y K.",
       observedFrequencies,
       expectedFrequencies: new Array(K).fill(expectedFrequency),
@@ -73,8 +80,12 @@ export async function performChiSquareTest(
   
   let interpretation = `Estadístico χ²: ${chiSquareStatistic.toFixed(3)}, Grados de Libertad: ${degreesOfFreedom}. `;
   interpretation += `Un valor de χ² más bajo en relación con los grados de libertad (K-1 = ${degreesOfFreedom}) sugiere que el generador PRNG (${prngMethod}`;
+  
   if (prngMethod !== 'Math.random' && prngSeedForTest !== undefined) {
     interpretation += `, semilla ${prngSeedForTest}`;
+  }
+  if (prngMethod === 'MixedCongruential' && mcgConfigForTest) {
+    interpretation += `, a=${mcgConfigForTest.a}, c=${mcgConfigForTest.c}, m=${mcgConfigForTest.m}`;
   }
   interpretation += `) se ajusta bien a una distribución uniforme. `;
   interpretation += `Consulte una tabla de Chi-cuadrado para determinar la significancia (p.ej., para α=0.05).`;
@@ -86,8 +97,10 @@ export async function performChiSquareTest(
     K,
     prngMethodUsed: prngMethod,
     prngSeedUsed: (prngMethod !== 'Math.random' && prngSeedForTest !== undefined) ? prngSeedForTest : undefined,
+    mcgParamsUsed: prngMethod === 'MixedCongruential' ? mcgConfigForTest : undefined,
     interpretation,
     observedFrequencies,
     expectedFrequencies: new Array(K).fill(expectedFrequency),
   };
 }
+
