@@ -29,7 +29,7 @@ export interface SimulationParams {
   enableProjectedZone: boolean;
   simulationSpeed: number; // multiplier for simulation tick speed
   prngMethod: PrngMethodType;
-  prngSeed: number; 
+  prngSeed: number;
   mcg_a: number;
   mcg_c: number;
   mcg_m: number;
@@ -54,6 +54,10 @@ export interface SimulationStats {
   rejectionRate: number;
   avgParkingTime: number; // in minutes
   simulationClock: number; // in minutes since start of day (e.g. 0 = 00:00)
+
+  // For collecting data for charts
+  parkingDurations: number[]; // Stores all individual parking durations of departed vehicles
+  arrivalsRejectionsTimelineData: Array<{ timeLabel: string; arrivals: number; rejections: number }>; // Hourly arrival/rejection counts
 }
 
 export interface EventLogEntry {
@@ -68,10 +72,9 @@ export interface ChiSquareResult {
   N: number;
   K: number;
   prngMethodUsed: PrngMethodType;
-  prngSeedUsed?: number; 
+  prngSeedUsed?: number;
   mcgParamsUsed?: { a: number, c: number, m: number };
   interpretation: string;
   observedFrequencies?: number[];
   expectedFrequencies?: number[];
 }
-
