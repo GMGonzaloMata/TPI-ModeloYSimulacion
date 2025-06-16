@@ -111,24 +111,27 @@ export default function ParkSimPage() {
 
   useEffect(() => {
     setMounted(true);
-    const seed = params.prngMethod === 'MixedCongruential' ? params.mcg_seed : params.prngSeed;
-    const mcgConfig = params.prngMethod === 'MixedCongruential' ? { a: params.mcg_a, c: params.mcg_c, m: params.mcg_m } : undefined;
-    setPrng(params.prngMethod, seed, mcgConfig);
+    // Initialize PRNG with a deterministic placeholder initially
+    // The actual PRNG method and seed are set on param change or simulation start
+    setPrng('Math.random'); // Or any default, will be overridden by useEffect below or handleParamChange
     setStats(getInitialStats(params));
   }, []);
 
    useEffect(() => {
-    if (!isRunning && currentStep === 1) {
+    if (mounted && !isRunning && currentStep === 1) { // Ensure mounted before trying to set PRNG
+        const seed = params.prngMethod === 'MixedCongruential' ? params.mcg_seed : params.prngSeed;
+        const mcgConfig = params.prngMethod === 'MixedCongruential' ? { a: params.mcg_a, c: params.mcg_c, m: params.mcg_m } : undefined;
+        setPrng(params.prngMethod, seed, mcgConfig);
+
         setStats(getInitialStats(params)); // Reset stats based on current params
         setEventLog([]);
         accumulatedParkingTimeRef.current = 0;
         departedVehiclesCountRef.current = 0;
-        nextArrivalDueRef.current = 0;
+        nextArrivalDueRef.current = 0; // Reset next arrival
         eventIdCounter = 0;
-        setZones(JSON.parse(JSON.stringify(initialZones)));
-        // updateStatistics will be called by handleStartSimulationAndGoToStep2 or if params impacting display change
+        setZones(JSON.parse(JSON.stringify(initialZones))); // Reset zones
     }
-  }, [params.simulationStartTime, params.simulationEndTime, params.prngMethod, params.prngSeed, params.mcg_a, params.mcg_c, params.mcg_m, params.mcg_seed, isRunning, currentStep, params]);
+  }, [params.simulationStartTime, params.simulationEndTime, params.prngMethod, params.prngSeed, params.mcg_a, params.mcg_c, params.mcg_m, params.mcg_seed, isRunning, currentStep, mounted]);
 
 
   const addEvent = useCallback((message: string) => {
@@ -148,8 +151,8 @@ export default function ParkSimPage() {
     currentSimClock: number,
     currentZones: ParkingZoneData[],
     currentParams: SimulationParams,
-    currentTotalArrivals: number,
-    currentTotalRejections: number,
+    currentTotalArrivals: number, // this is the previous totalArrivals before this tick's events
+    currentTotalRejections: number, // this is the previous totalRejections before this tick's events
     tickDepartedDurations: number[],
     tickArrivalEvents: Array<{ type: 'arrival' | 'rejection'; timeMinute: number }>
   ) => {
@@ -182,10 +185,16 @@ export default function ParkSimPage() {
       const newParkingDurations = [...prevStats.parkingDurations, ...tickDepartedDurations];
       const newTimelineData = [...prevStats.arrivalsRejectionsTimelineData];
 
+      const arrivalsThisTick = tickArrivalEvents.filter(e => e.type === 'arrival').length;
+      const rejectionsThisTick = tickArrivalEvents.filter(e => e.type === 'rejection').length;
+
       tickArrivalEvents.forEach(event => {
         const hour = Math.floor(event.timeMinute / 60);
-        const entryIndex = newTimelineData.findIndex(e => e.timeLabel.startsWith(`${String(hour).padStart(2, '0')}:00`));
-        if (entryIndex !== -1) {
+        // Find index based on start hour of the simulation for timeline data
+        const startHourOfSimulation = Math.floor(currentParams.simulationStartTime / 60);
+        const entryIndex = hour - startHourOfSimulation;
+
+        if (entryIndex >= 0 && entryIndex < newTimelineData.length) {
           const updatedEntry = { ...newTimelineData[entryIndex] };
           if (event.type === 'arrival') updatedEntry.arrivals++;
           else updatedEntry.rejections++;
@@ -193,9 +202,9 @@ export default function ParkSimPage() {
         }
       });
       
-      const nextTotalArrivals = prevStats.totalArrivals + tickArrivalEvents.length;
+      const nextTotalArrivals = currentTotalArrivals + arrivalsThisTick;
       const nextTotalDepartures = prevStats.totalDepartures + tickDepartedDurations.length;
-      const nextTotalRejections = prevStats.totalRejections + tickArrivalEvents.filter(e => e.type === 'rejection').length;
+      const nextTotalRejections = currentTotalRejections + rejectionsThisTick;
 
 
       return {
@@ -217,13 +226,13 @@ export default function ParkSimPage() {
         arrivalsRejectionsTimelineData: newTimelineData,
       };
     });
-  }, []); // No direct zone/param dependencies here, they are passed in
+  }, []); 
 
 
   const simulationTick = useCallback(() => {
     const currentSimClock = stats.simulationClock + 1;
 
-    if (currentSimClock > params.simulationEndTime) { // Check against next clock
+    if (currentSimClock > params.simulationEndTime) { 
       setIsRunning(false);
       addEvent("Simulación finalizada por alcanzar hora de cierre.");
       toast({ title: "Simulación Finalizada", description: "Se alcanzó la hora de cierre configurada." });
@@ -234,13 +243,15 @@ export default function ParkSimPage() {
     const tickDepartedDurations: number[] = [];
     const tickArrivalEvents: Array<{ type: 'arrival' | 'rejection'; timeMinute: number }> = [];
     let vehicleDepartedThisTick = false;
-    let vehicleArrivedThisTick = false; // For addEvent logging
+    let vehicleArrivedOrRejectedThisTick = false;
 
-    const newZones = zones.map(zone => ({
+    let tempZones = JSON.parse(JSON.stringify(zones)); // Work with a mutable copy for this tick
+
+    tempZones = tempZones.map((zone: ParkingZoneData) => ({
       ...zone,
-      spaces: zone.spaces.map(space => {
+      spaces: zone.spaces.map((space: ParkingSpaceData) => {
         const newSpace = {...space};
-        if ((newSpace.status === 'occupied' || (newSpace.status === 'reserved' && params.enableReservations)) && newSpace.departureTime !== undefined && newSpace.departureTime <= stats.simulationClock) { // Use previous clock for departure check
+        if ((newSpace.status === 'occupied' || (newSpace.status === 'reserved' && params.enableReservations)) && newSpace.departureTime !== undefined && newSpace.departureTime <= stats.simulationClock) { 
           const durationParked = newSpace.assignedDuration || params.parkingDurationMean;
           accumulatedParkingTimeRef.current += durationParked;
           departedVehiclesCountRef.current +=1;
@@ -257,21 +268,18 @@ export default function ParkSimPage() {
       })
     }));
 
-    setZones(newZones); // Update zones based on departures FIRST
-
+    // Handling arrivals
     if (nextArrivalDueRef.current <= 0) {
       let allocated = false;
-      const vehicleId = `V-${stats.totalArrivals + 1 - stats.totalRejections + tickArrivalEvents.filter(e=> e.type === 'arrival').length}`; //Ensure unique ID even with rejections
+      // Use previous totalArrivals and totalRejections for ID generation before they are updated by updateStatistics
+      const vehicleId = `V-${stats.totalArrivals - stats.totalRejections + 1}`; 
       const zonePriority = ['internal', 'external'];
       if (params.enableProjectedZone) {
         zonePriority.push('projected');
       }
 
-      // Need to operate on a mutable copy of newZones for allocation within this tick
-      let tempZonesForArrival = JSON.parse(JSON.stringify(newZones));
-
       for (const zoneId of zonePriority) {
-        const zone = tempZonesForArrival.find((z: ParkingZoneData) => z.id === zoneId);
+        const zone = tempZones.find((z: ParkingZoneData) => z.id === zoneId);
         if (zone) {
           const freeSpace = zone.spaces.find((s: ParkingSpaceData) => s.status === 'free');
           if (freeSpace) {
@@ -279,49 +287,43 @@ export default function ParkSimPage() {
             freeSpace.vehicleId = vehicleId;
             const duration = Math.max(1, Math.round(normal(params.parkingDurationMean, params.parkingDurationStdDev)));
             freeSpace.assignedDuration = duration;
-            freeSpace.departureTime = currentSimClock + duration; // Use currentSimClock for departure time
+            freeSpace.departureTime = currentSimClock + duration; 
             addEvent(`Vehículo ${vehicleId} llegó y estacionó en ${zone.name} espacio ${freeSpace.id}. Duración: ${duration} min.`);
             allocated = true;
-            vehicleArrivedThisTick = true;
             break;
           }
         }
       }
       
-      if (allocated) {
-         setZones(tempZonesForArrival); // Commit zone changes if allocated
-      }
-
       tickArrivalEvents.push({ type: allocated ? 'arrival' : 'rejection', timeMinute: currentSimClock });
-
+      vehicleArrivedOrRejectedThisTick = true;
 
       if (!allocated) {
-        addEvent(`Vehículo (ID Rechazo Potencial ${stats.totalRejections + 1 + tickArrivalEvents.filter(e=>e.type==='rejection').length}) rechazado. Sin espacio.`);
-        vehicleArrivedThisTick = true;
+        addEvent(`Vehículo (ID Rechazo Potencial ${stats.totalRejections + 1}) rechazado. Sin espacio.`);
       }
 
+      // Schedule next arrival
       let meanArrival;
       if (currentSimClock >= PEAK_START_MINUTE && currentSimClock < PEAK_END_MINUTE) {
         meanArrival = params.peakArrivalMean;
-      } else if (currentSimClock < PEAK_START_MINUTE || currentSimClock >= params.simulationEndTime) {
-        meanArrival = params.morningArrivalMean;
-        if (currentSimClock >= PEAK_END_MINUTE && currentSimClock < params.simulationEndTime) {
-          meanArrival = params.afternoonArrivalMean;
+      } else if (currentSimClock < PEAK_START_MINUTE || currentSimClock >= params.simulationEndTime) { // Logic for morning/afternoon outside peak
+        meanArrival = params.morningArrivalMean; // Default to morning
+        if (currentSimClock >= PEAK_END_MINUTE && currentSimClock < params.simulationEndTime) { // If past peak but before end, use afternoon
+            meanArrival = params.afternoonArrivalMean;
         }
-      } else {
+      } else { // This covers the case between PEAK_END_MINUTE and simulationEndTime implicitly
           meanArrival = params.afternoonArrivalMean;
       }
       nextArrivalDueRef.current = Math.max(1, Math.round(exponential(meanArrival)));
     } else {
        nextArrivalDueRef.current -=1;
     }
+    
+    setZones(tempZones); // Commit all zone changes for the tick
 
-    if (vehicleDepartedThisTick || vehicleArrivedThisTick) {
-       updateStatistics(currentSimClock, newZones, params, stats.totalArrivals, stats.totalRejections, tickDepartedDurations, tickArrivalEvents);
-    } else {
-      // If no specific events causing stat recalculation, just update clock
-      setStats(prev => ({ ...prev, simulationClock: currentSimClock }));
-    }
+    // Call updateStatistics if any event occurred or if it's just a clock tick to update time
+    // Pass previous totalArrivals and totalRejections for correct calculation within updateStatistics
+    updateStatistics(currentSimClock, tempZones, params, stats.totalArrivals, stats.totalRejections, tickDepartedDurations, tickArrivalEvents);
 
   }, [addEvent, params, stats.simulationClock, stats.totalArrivals, stats.totalRejections, updateStatistics, toast, zones]);
 
@@ -346,26 +348,27 @@ export default function ParkSimPage() {
   const handleParamChange = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
     setParams(prev => {
       const newParams = { ...prev, [key]: value };
-      const isMcgRelated = ['prngMethod', 'mcg_a', 'mcg_c', 'mcg_m', 'mcg_seed'].includes(key as string);
-      const isOtherSeedablePrng = ['prngMethod', 'prngSeed'].includes(key as string) && newParams.prngMethod !== 'MixedCongruential';
-
-      if (isMcgRelated || isOtherSeedablePrng) {
+      const isPrngRelated = ['prngMethod', 'prngSeed', 'mcg_a', 'mcg_c', 'mcg_m', 'mcg_seed'].includes(key as string);
+      
+      if (isPrngRelated) {
         const seed = newParams.prngMethod === 'MixedCongruential' ? newParams.mcg_seed : newParams.prngSeed;
         const mcgConfig = newParams.prngMethod === 'MixedCongruential' ? { a: newParams.mcg_a, c: newParams.mcg_c, m: newParams.mcg_m } : undefined;
         setPrng(newParams.prngMethod, seed, mcgConfig);
-        setChiSquareResults(null);
+        setChiSquareResults(null); // Reset Chi-square if PRNG config changes
       }
       
-      // If simulation time range or PRNG changes WHILE IN CONFIG STEP and NOT RUNNING, reset key simulation variables
-      const shouldResetFullStats = (key === 'simulationStartTime' || key === 'simulationEndTime' || isMcgRelated || isOtherSeedablePrng);
+      const shouldResetFullStats = (key === 'simulationStartTime' || key === 'simulationEndTime' || isPrngRelated);
       if (shouldResetFullStats && !isRunning && currentStep === 1) {
          setStats(getInitialStats(newParams));
          setEventLog([]);
+         setZones(JSON.parse(JSON.stringify(initialZones)));
          accumulatedParkingTimeRef.current = 0;
          departedVehiclesCountRef.current = 0;
          nextArrivalDueRef.current = 0;
          eventIdCounter = 0;
-         setZones(JSON.parse(JSON.stringify(initialZones)));
+      } else if (!isRunning && currentStep === 1 && (key === 'enableProjectedZone' || key === 'enableReservations')) {
+        // If only zone enable/disable changes, update stats for display without full reset
+        updateStatistics(stats.simulationClock, zones, newParams, stats.totalArrivals, stats.totalRejections, [], []);
       }
       return newParams;
     });
@@ -377,32 +380,39 @@ export default function ParkSimPage() {
         setIsRunning(false);
         return;
     }
-    if (stats.simulationClock >= params.simulationEndTime) {
+
+    // Initialize PRNG based on current params right before starting/resuming
+    const seed = params.prngMethod === 'MixedCongruential' ? params.mcg_seed : params.prngSeed;
+    const mcgConfig = params.prngMethod === 'MixedCongruential' ? { a: params.mcg_a, c: params.mcg_c, m: params.mcg_m } : undefined;
+    setPrng(params.prngMethod, seed, mcgConfig);
+
+    // If simulation clock is before start time, adjust it
+    let clockToUse = stats.simulationClock;
+    if (stats.simulationClock < params.simulationStartTime) {
+      clockToUse = params.simulationStartTime;
+      setStats(prev => ({...prev, simulationClock: params.simulationStartTime}));
+      addEvent(`Reloj ajustado al inicio de la simulación: ${formatTime(params.simulationStartTime)}.`);
+    }
+    
+    if (clockToUse >= params.simulationEndTime) {
       addEvent("La simulación ya ha alcanzado la hora de finalización. Reinicie para comenzar de nuevo.");
       toast({ title: "Simulación Finalizada", description: "Reinicie para comenzar de nuevo.", variant: "default" });
       setIsRunning(false);
       setCurrentStep(3);
       return;
     }
-    if (stats.simulationClock < params.simulationStartTime) {
-      setStats(prev => ({...prev, simulationClock: params.simulationStartTime}));
-      addEvent(`Reloj ajustado al inicio de la simulación: ${formatTime(params.simulationStartTime)}.`);
-    }
 
     setIsRunning(true);
     addEvent("Simulación iniciada/continuada.");
 
-    const seed = params.prngMethod === 'MixedCongruential' ? params.mcg_seed : params.prngSeed;
-    const mcgConfig = params.prngMethod === 'MixedCongruential' ? { a: params.mcg_a, c: params.mcg_c, m: params.mcg_m } : undefined;
-    setPrng(params.prngMethod, seed, mcgConfig);
-
+    // Schedule first arrival if not already scheduled or if starting fresh from a state where it was 0
     if(nextArrivalDueRef.current <=0 ) {
         let meanArrival;
-        if (stats.simulationClock >= PEAK_START_MINUTE && stats.simulationClock < PEAK_END_MINUTE) {
+        if (clockToUse >= PEAK_START_MINUTE && clockToUse < PEAK_END_MINUTE) {
           meanArrival = params.peakArrivalMean;
-        } else if (stats.simulationClock < PEAK_START_MINUTE) {
+        } else if (clockToUse < PEAK_START_MINUTE) {
           meanArrival = params.morningArrivalMean;
-        } else {
+        } else { // After peak
           meanArrival = params.afternoonArrivalMean;
         }
         nextArrivalDueRef.current = Math.max(1, Math.round(exponential(meanArrival)));
@@ -414,20 +424,27 @@ export default function ParkSimPage() {
         toast({ title: "Error al Iniciar", description: "La hora de inicio debe ser anterior a la hora de fin.", variant: "destructive"});
         return;
     }
-    setStats(getInitialStats(params)); // Full reset with current params
+    // Full reset for a new simulation run
+    setStats(getInitialStats(params)); 
     setEventLog([]);
     setZones(JSON.parse(JSON.stringify(initialZones)));
     accumulatedParkingTimeRef.current = 0;
     departedVehiclesCountRef.current = 0;
-    nextArrivalDueRef.current = 0;
+    nextArrivalDueRef.current = 0; // Reset, will be scheduled by handleActualStart
     eventIdCounter = 0;
-    setChiSquareResults(null); // Clear chi-square from previous runs
+    setChiSquareResults(null); 
 
-    handleActualStart();
-    if (stats.simulationClock < params.simulationEndTime && isRunning) { // Check isRunning again as handleActualStart might set it to false on error
+    // Call handleActualStart which now also sets PRNG and handles clock adjustments
+    handleActualStart(); 
+
+    // Only go to step 2 if simulation actually started and is not immediately over
+    // handleActualStart might set isRunning to false if validation fails or sim is already at end time
+    if (isRunning && stats.simulationClock < params.simulationEndTime) { 
       setCurrentStep(2);
     } else if (!isRunning && params.simulationStartTime < params.simulationEndTime) {
-      // Stay in config if validation failed but times are valid
+       // Stay in config (Step 1) if handleActualStart failed validation but times are valid
+    } else if (stats.simulationClock >= params.simulationEndTime){
+       setCurrentStep(3); // If it ended immediately
     }
   };
 
@@ -437,19 +454,25 @@ export default function ParkSimPage() {
   };
 
   const handleFullReset = () => {
-    setIsRunning(false);
-    setParams(initialParams);
-    setStats(getInitialStats(initialParams));
+    setIsRunning(false); // Stop simulation
+    setParams(initialParams); // Reset params to defaults
+    
+    // Re-initialize PRNG with default params
+    const seed = initialParams.prngMethod === 'MixedCongruential' ? initialParams.mcg_seed : initialParams.prngSeed;
+    const mcgConfig = initialParams.prngMethod === 'MixedCongruential' ? { a: initialParams.mcg_a, c: initialParams.mcg_c, m: initialParams.mcg_m } : undefined;
+    setPrng(initialParams.prngMethod, seed, mcgConfig);
+
+    setStats(getInitialStats(initialParams)); // Reset stats based on default params
     setEventLog([]);
-    setZones(JSON.parse(JSON.stringify(initialZones)));
-    setChiSquareResults(null);
+    setZones(JSON.parse(JSON.stringify(initialZones))); // Reset zones
+    setChiSquareResults(null); // Clear chi-square
+    
+    // Reset refs
     accumulatedParkingTimeRef.current = 0;
     departedVehiclesCountRef.current = 0;
     nextArrivalDueRef.current = 0;
     eventIdCounter = 0;
-    const seed = initialParams.prngMethod === 'MixedCongruential' ? initialParams.mcg_seed : initialParams.prngSeed;
-    const mcgConfig = initialParams.prngMethod === 'MixedCongruential' ? { a: initialParams.mcg_a, c: initialParams.mcg_c, m: initialParams.mcg_m } : undefined;
-    setPrng(initialParams.prngMethod, seed, mcgConfig);
+    
     addEvent("Simulación reiniciada a valores por defecto.");
     toast({ title: "Simulación Reiniciada", description: "Todos los parámetros y estados han sido restaurados." });
   };
@@ -483,22 +506,22 @@ export default function ParkSimPage() {
     if (step === 1 && currentStep !== 1) {
       if(isRunning) handlePause();
     }
-    if (currentStep === 2 && step === 3) {
-      if (isRunning) {
+    if (currentStep === 2 && step === 3) { // Moving from Sim to Results
+      if (isRunning) { // If running, pause it before showing final results
         handlePause();
       }
     }
     setCurrentStep(step);
   };
-
+  
+  // Effect to re-evaluate stats for display if certain params change in config step
   useEffect(() => {
-    // This effect is to ensure stats like occupancy rates are updated if params like enableProjectedZone change
-    // while *not* running and in config step. The main updateStatistics call is now driven by simulationTick.
-     if (!isRunning && currentStep === 1) {
-        // Create a dummy update to refresh displayed stats like overall occupancy if a zone is enabled/disabled
+     if (!isRunning && currentStep === 1 && mounted) {
+        // This call is to ensure display updates correctly if, for example, enableProjectedZone changes
+        // It does not involve event processing, hence empty arrays for last two args.
         updateStatistics(stats.simulationClock, zones, params, stats.totalArrivals, stats.totalRejections, [], []);
      }
-  }, [params.enableProjectedZone, params.enableReservations, zones, isRunning, currentStep, stats.simulationClock, stats.totalArrivals, stats.totalRejections, params, updateStatistics]);
+  }, [params.enableProjectedZone, params.enableReservations, zones, isRunning, currentStep, mounted, params, stats.simulationClock, stats.totalArrivals, stats.totalRejections, updateStatistics]);
 
 
   const activeZones = zones.filter(zone => !zone.isProjected || params.enableProjectedZone);
@@ -520,15 +543,19 @@ export default function ParkSimPage() {
         {currentStep === 1 && (
           <div>
             <h2 className="text-3xl font-headline mb-6 text-center">Paso 1: Configurar Simulación</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              <SimulationControls
-                params={params}
-                onParamChange={handleParamChange}
-                onRunChiSquareTest={handleRunChiSquareTest}
-              />
-              <div>
-                {chiSquareResults && <ChiSquareResultsDisplay results={chiSquareResults} />}
+            <div className="flex flex-col items-center gap-6 px-4">
+              <div className="w-full max-w-2xl">
+                <SimulationControls
+                  params={params}
+                  onParamChange={handleParamChange}
+                  onRunChiSquareTest={handleRunChiSquareTest}
+                />
               </div>
+              {chiSquareResults && (
+                <div className="w-full max-w-2xl">
+                  <ChiSquareResultsDisplay results={chiSquareResults} />
+                </div>
+              )}
             </div>
             <div className="mt-8 flex flex-col items-center space-y-4">
               <Button onClick={handleStartSimulationAndGoToStep2} size="lg" className="w-full max-w-xs">
@@ -559,7 +586,7 @@ export default function ParkSimPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <h3 className="text-2xl font-headline mb-4 text-center">Estado del Estacionamiento</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {activeZones.map((zone) => (
                     <ParkingZone key={zone.id} zone={zone} />
                   ))}
@@ -585,7 +612,7 @@ export default function ParkSimPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 <div className="space-y-6">
                     <StatisticsDisplay stats={stats} />
-                    {chiSquareResults && (
+                    {chiSquareResults && ( // Show Chi-square results here if available from Step 1
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-xl font-semibold">Resultados Prueba Chi-cuadrado</CardTitle>
@@ -606,7 +633,7 @@ export default function ParkSimPage() {
               <Button onClick={handleResetAndGoToConfig} size="lg" className="w-full sm:w-auto">
                 Nueva Simulación <RefreshCcw className="ml-2 h-5 w-5" />
               </Button>
-              <Button onClick={() => goToStep(2)} size="lg" variant="outline" className="w-full sm:w-auto">
+              <Button onClick={() => goToStep(2)} size="lg" variant="outline" className="w-full sm:w-auto" disabled={stats.simulationClock >= params.simulationEndTime}>
                 <MonitorPlay className="mr-2 h-5 w-5" /> Volver a la Simulación
               </Button>
             </div>
