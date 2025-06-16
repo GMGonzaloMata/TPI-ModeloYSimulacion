@@ -33,8 +33,8 @@ const createSpaces = (idPrefix: string, count: number): ParkingSpaceData[] => {
 };
 
 const initialZones: ParkingZoneData[] = [
-  { id: 'internal', name: 'Zona Interna', capacity: 20, spaces: createSpaces('I', 20) },
-  { id: 'external', name: 'Zona Externa', capacity: 30, spaces: createSpaces('E', 30) },
+  { id: 'internal', name: 'Zona Interna', capacity: 36, spaces: createSpaces('I', 36) },
+  { id: 'external', name: 'Zona Externa', capacity: 36, spaces: createSpaces('E', 36) },
   { id: 'projected', name: 'Zona Proyectada (Expansión)', capacity: 24, spaces: createSpaces('P', 24), isProjected: true },
 ];
 
@@ -586,7 +586,7 @@ export default function ParkSimPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <h3 className="text-2xl font-headline mb-4 text-center">Estado del Estacionamiento</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
                   {activeZones.map((zone) => (
                     <ParkingZone key={zone.id} zone={zone} />
                   ))}
