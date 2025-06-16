@@ -13,7 +13,7 @@ import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import type { ParkingZoneData, ParkingSpaceData, SimulationParams, SimulationStats, EventLogEntry, ChiSquareResult, PrngMethodType } from '@/types';
-import { exponential, normal, setPrng, getLcgSeed as getRandomLcgSeed, setLcgSeed as setRandomLcgSeed } from '@/lib/random';
+import { exponential, normal, setPrng, getLcgSeed as getRandomLcgSeed, setLcgSeed as setRandomLcgSeed, getActiveGenerator } from '@/lib/random';
 import { performChiSquareTest } from '@/lib/chiSquare';
 import { PanelLeft } from 'lucide-react';
 
@@ -76,6 +76,7 @@ export default function ParkSimPage() {
   const [eventLog, setEventLog] = useState<EventLogEntry[]>([]);
   const [chiSquareResults, setChiSquareResults] = useState<ChiSquareResult | null>(null);
   const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
 
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const accumulatedParkingTimeRef = useRef(0);
@@ -83,6 +84,7 @@ export default function ParkSimPage() {
   const nextArrivalDueRef = useRef(0);
 
   useEffect(() => {
+    setMounted(true);
     setPrng(initialParams.prngMethod, initialParams.lcgSeed);
   }, []);
 
@@ -242,7 +244,6 @@ export default function ParkSimPage() {
       const newParams = { ...prev, [key]: value };
       if (key === 'prngMethod' || (key === 'lcgSeed' && newParams.prngMethod === 'LCG')) {
         setPrng(newParams.prngMethod, newParams.lcgSeed);
-        // If PRNG method changes, or LCG seed changes while LCG is active, clear old Chi-square results
         setChiSquareResults(null); 
       }
       return newParams;
@@ -252,7 +253,6 @@ export default function ParkSimPage() {
   const handleStart = () => {
     setIsRunning(true);
     addEvent("Simulación iniciada.");
-    // Ensure PRNG is set with current params
     setPrng(params.prngMethod, params.lcgSeed); 
     if(nextArrivalDueRef.current <=0 ) {
         let meanArrival;
@@ -281,26 +281,23 @@ export default function ParkSimPage() {
     departedVehiclesCountRef.current = 0;
     nextArrivalDueRef.current = 0;
     eventIdCounter = 0;
-    setPrng(initialParams.prngMethod, initialParams.lcgSeed); // Reset PRNG
+    setPrng(initialParams.prngMethod, initialParams.lcgSeed);
     addEvent("Simulación reiniciada.");
     toast({ title: "Simulación Reiniciada", description: "Todos los parámetros y estados han sido restaurados." });
   };
   
-  const handleRunChiSquareTest = () => {
+  const handleRunChiSquareTest = async () => {
     if (isRunning) {
       toast({ title: "Prueba Chi-cuadrado", description: "Detenga la simulación para ejecutar la prueba.", variant: "destructive" });
       return;
     }
     const currentSeedForTest = params.prngMethod === 'LCG' ? params.lcgSeed : undefined;
-    // It's important to use a specific seed for LCG test if we want repeatable results for THAT test run.
-    // The main simulation's LCG seed will continue from where it left off if simulation resumes.
-    // Or, we can choose to reset the main simulation's LCG seed here if desired.
-    // For now, the test uses the *current* LCG seed from params.
-    if (params.prngMethod === 'LCG') {
-       setRandomLcgSeed(params.lcgSeed); // Ensure test starts with this seed
+
+    if (params.prngMethod === 'LCG' && currentSeedForTest !== undefined) {
+       setRandomLcgSeed(currentSeedForTest); 
     }
 
-    const results = performChiSquareTest(
+    const results = await performChiSquareTest(
       params.chiSquareSampleSize,
       params.chiSquareNumBins,
       params.prngMethod,
@@ -322,7 +319,7 @@ export default function ParkSimPage() {
             <SidebarHeader className="p-2 flex justify-between items-center">
               <h2 className="font-semibold text-lg font-headline p-2">Controles y Estadísticas</h2>
                <div className="md:hidden">
-                <SidebarTrigger><PanelLeft /></SidebarTrigger>
+                {mounted && <SidebarTrigger><PanelLeft /></SidebarTrigger>}
               </div>
             </SidebarHeader>
             <SidebarContent className="p-2 space-y-4">
