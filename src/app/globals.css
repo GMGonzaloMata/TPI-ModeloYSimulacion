@@ -8,25 +8,25 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 94%; /* Light Gray */
+    --background: 0 0% 96%; /* Maintained light gray for background */
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 196 73% 52%; /* Vibrant Blue */
-    --primary-foreground: 0 0% 98%; /* Default light text, good contrast */
+    --primary: 207 100% 37%; /* UCP Blue */
+    --primary-foreground: 0 0% 100%; /* White text on UCP Blue */
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96.1%;
     --muted-foreground: 0 0% 45.1%;
-    --accent: 166 73% 52%; /* Analogous Teal */
-    --accent-foreground: 0 0% 9%; /* Default dark text, good contrast */
+    --accent: 207 70% 55%; /* Lighter UCP Blue for accent */
+    --accent-foreground: 207 100% 15%; /* Dark blue text on lighter accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 196 73% 52%; /* Using primary color for ring */
+    --ring: 207 100% 37%; /* UCP Blue for ring */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -34,15 +34,15 @@ body {
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
 
-    /* Sidebar specific colors - can keep as is or align with new theme */
-    --sidebar-background: 0 0% 98%; /* Default light gray for sidebar */
+    /* Sidebar specific colors */
+    --sidebar-background: 0 0% 98%; 
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 196 73% 45%; /* Slightly darker primary for sidebar elements */
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 166 73% 45%; /* Slightly darker accent for sidebar elements */
-    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-primary: 207 100% 30%; /* Slightly darker UCP Blue for sidebar elements */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 207 70% 48%; /* Slightly darker lighter UCP Blue for sidebar accent */
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 196 73% 52%;
+    --sidebar-ring: 207 100% 37%;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -51,19 +51,19 @@ body {
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 196 73% 62%; /* Lighter Blue for dark mode */
-    --primary-foreground: 196 100% 15%; /* Darker blue text for contrast */
+    --primary: 207 100% 57%; /* Lighter UCP Blue for dark mode */
+    --primary-foreground: 207 100% 15%; /* Darker blue text for contrast */
     --secondary: 0 0% 14.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 14.9%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 166 73% 62%; /* Lighter Teal for dark mode */
-    --accent-foreground: 166 100% 15%; /* Darker teal text for contrast */
+    --accent: 207 70% 75%; /* Even lighter UCP Blue for accent in dark mode */
+    --accent-foreground: 207 100% 10%; /* Very dark blue text for contrast */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
-    --ring: 196 73% 62%; /* Lighter primary for ring in dark mode */
+    --ring: 207 100% 57%; /* Lighter UCP Blue for ring in dark mode */
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -71,14 +71,14 @@ body {
     --chart-5: 340 75% 55%;
 
     /* Sidebar specific colors - dark mode */
-    --sidebar-background: 240 5.9% 10%; /* Default dark for sidebar */
+    --sidebar-background: 240 5.9% 10%; 
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 196 73% 55%; /* Primary for sidebar elements in dark mode */
+    --sidebar-primary: 207 100% 50%; /* Lighter UCP Blue for sidebar elements */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 166 73% 55%; /* Accent for sidebar elements in dark mode */
+    --sidebar-accent: 207 70% 68%; /* Lighter UCP Blue accent for sidebar */
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 196 73% 62%;
+    --sidebar-ring: 207 100% 57%;
   }
 }
 
