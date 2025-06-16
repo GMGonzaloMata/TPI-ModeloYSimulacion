@@ -1,6 +1,6 @@
 
 import type { PrngMethodType } from '@/types';
-import { Random, MersenneTwister19937, AleaAlgorithm } from 'random-js';
+import { Random, MersenneTwister19937, Alea } from 'random-js';
 
 // LCG parameters
 const LCG_A = 1664525;
@@ -28,6 +28,10 @@ export function getLcgInternalSeedValue(): number {
     return lcgInternalSeed;
 }
 
+export function getActiveGenerator(): () => number {
+    return activeGenerator;
+}
+
 
 export function setPrng(method: PrngMethodType, seed?: number) {
   currentPrngMethod = method;
@@ -47,7 +51,7 @@ export function setPrng(method: PrngMethodType, seed?: number) {
     randomJsInstance = new Random(engine);
     activeGenerator = () => randomJsInstance!.realZeroToOneExclusive();
   } else if (method === 'ALEA') {
-    const engine = AleaAlgorithm.seed(effectiveSeed); // AleaAlgorithm is an engine function
+    const engine = Alea(effectiveSeed); // Use Alea as a factory function
     randomJsInstance = new Random(engine);
     activeGenerator = () => randomJsInstance!.realZeroToOneExclusive();
   } else { // Math.random
@@ -87,3 +91,4 @@ export function normal(mean: number, stdDev: number): number {
   const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
   return mean + z * stdDev;
 }
+
