@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Pause, RotateCcw, Settings2, HelpCircle, TestTube2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings2, HelpCircle, TestTube2, ClockIcon } from 'lucide-react';
 import type { SimulationParams, PrngMethodType } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -44,13 +44,17 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
      if (!isNaN(value)) {
         onParamChange(key, value as any);
      } else if (event.target.value === "") {
-        // Allow clearing input, handle potential NaN if needed or set to a default
-        onParamChange(key, 0 as any); // Or some other default or validation
+        onParamChange(key, 0 as any); 
      }
   };
   
   const handleIntegerInputChange = (key: keyof SimulationParams, event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(event.target.value, 10);
+    let value = parseInt(event.target.value, 10);
+    if (key === 'simulationStartTime' || key === 'simulationEndTime') {
+        if (!isNaN(value)) {
+            value = Math.max(0, Math.min(value, 24 * 60 -1)); // Clamp between 0 and 1439
+        }
+    }
     if (!isNaN(value)) {
         onParamChange(key, value as any);
     } else if (event.target.value === "") {
@@ -74,6 +78,29 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
+        <ControlGroup title="Horarios de Simulación (minutos desde medianoche)">
+            <InputControl 
+                label="Hora Inicio" 
+                id="simulationStartTime" 
+                value={params.simulationStartTime} 
+                onChange={(e) => handleIntegerInputChange('simulationStartTime', e)} 
+                min={0} 
+                max={24*60-1}
+                step={15}
+                tooltip="Minuto del día para iniciar (0-1439). Ej: 360 para 6:00 AM."
+            />
+            <InputControl 
+                label="Hora Fin" 
+                id="simulationEndTime" 
+                value={params.simulationEndTime} 
+                onChange={(e) => handleIntegerInputChange('simulationEndTime', e)} 
+                min={0} 
+                max={24*60-1}
+                step={15}
+                tooltip="Minuto del día para finalizar (0-1439). Ej: 1320 para 10:00 PM."
+            />
+        </ControlGroup>
+
         <div>
           <Label htmlFor="simSpeed" className="text-sm font-medium">Velocidad Simulación (ticks/seg): {params.simulationSpeed}x</Label>
           <Slider
@@ -169,8 +196,8 @@ const ControlGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ 
   </div>
 );
 
-const InputControl: React.FC<{label: string, id: string, value: number, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, min?: number, step?: number, tooltip?: string}> = 
-  ({label, id, value, onChange, min = 0, step=1, tooltip}) => (
+const InputControl: React.FC<{label: string, id: string, value: number, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, min?: number, max?:number, step?: number, tooltip?: string}> = 
+  ({label, id, value, onChange, min = 0, max, step=1, tooltip}) => (
   <div className="grid grid-cols-3 items-center gap-2">
     <Label htmlFor={id} className="text-xs col-span-1 flex items-center">
         {label}
@@ -185,7 +212,7 @@ const InputControl: React.FC<{label: string, id: string, value: number, onChange
             </Tooltip>
         )}
     </Label>
-    <Input id={id} type="number" value={value} onChange={onChange} min={min} step={step} className="h-8 col-span-2 text-xs" />
+    <Input id={id} type="number" value={value} onChange={onChange} min={min} max={max} step={step} className="h-8 col-span-2 text-xs" />
   </div>
 );
 

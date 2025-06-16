@@ -6,6 +6,7 @@ export interface ParkingSpaceData {
   status: ParkingSpaceStatus;
   vehicleId?: string;
   departureTime?: number; // Simulation clock time for departure
+  assignedDuration?: number; // The specific duration assigned to this vehicle upon parking
 }
 
 export interface ParkingZoneData {
@@ -31,6 +32,8 @@ export interface SimulationParams {
   lcgSeed: number;
   chiSquareSampleSize: number;
   chiSquareNumBins: number;
+  simulationStartTime: number; // in minutes from midnight
+  simulationEndTime: number;   // in minutes from midnight
 }
 
 export interface SimulationStats {
