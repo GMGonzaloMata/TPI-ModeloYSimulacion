@@ -1,6 +1,9 @@
 
 import type { PrngMethodType } from '@/types';
-import { Random, MersenneTwister19937, Alea } from 'random-js';
+// According to random-js@2.1.0 type definitions, Alea (uppercase) is the correct export.
+// If this line causes "Export Alea doesn't exist", there might be an issue with
+// the random-js package's ESM build or its resolution in your Next.js environment.
+import { Random, MersenneTwister19937 } from 'random-js'; // Removed Alea from import
 
 // LCG parameters
 const LCG_A = 1664525;
@@ -22,6 +25,7 @@ export function getPrngInitializationSeed(): number | undefined {
   return currentPrngInitSeed;
 }
 
+// Only used for direct LCG internal state, not for random-js engines
 export function getLcgInternalSeedValue(): number {
     return lcgInternalSeed;
 }
@@ -30,10 +34,9 @@ export function getActiveGenerator(): () => number {
     return activeGenerator;
 }
 
-
 export function setPrng(method: PrngMethodType, seed?: number) {
   currentPrngMethod = method;
-  currentPrngInitSeed = seed; 
+  currentPrngInitSeed = seed;
 
   const effectiveSeed = seed !== undefined ? seed : Date.now();
 
@@ -45,17 +48,27 @@ export function setPrng(method: PrngMethodType, seed?: number) {
     };
     randomJsInstance = null;
   } else if (method === 'Mersenne-Twister') {
+    // MersenneTwister19937.seed() returns an engine instance
     const engine = MersenneTwister19937.seed(effectiveSeed);
     randomJsInstance = new Random(engine);
     activeGenerator = () => randomJsInstance!.realZeroToOneExclusive();
-  } else if (method === 'ALEA') {
-    const engine = Alea(effectiveSeed); // Alea is a factory function
-    randomJsInstance = new Random(engine);
-    activeGenerator = () => randomJsInstance!.realZeroToOneExclusive();
+  // Removed ALEA block
+  // } else if (method === 'ALEA') {
+  //   try {
+  //     const engine = Alea(effectiveSeed); // Alea is a factory function
+  //     randomJsInstance = new Random(engine);
+  //     activeGenerator = () => randomJsInstance!.realZeroToOneExclusive();
+  //   } catch (e) {
+  //     console.error(`Error initializing ALEA engine with seed ${effectiveSeed}. Falling back to Math.random(). Error:`, e);
+  //     currentPrngMethod = 'Math.random'; 
+  //     activeGenerator = Math.random;
+  //     randomJsInstance = null;
+  //     currentPrngInitSeed = undefined;
+  //   }
   } else { // Math.random
     activeGenerator = Math.random;
     randomJsInstance = null;
-    currentPrngInitSeed = undefined; 
+    currentPrngInitSeed = undefined;
   }
 }
 
@@ -67,10 +80,10 @@ export function setPrng(method: PrngMethodType, seed?: number) {
 export function exponential(mean: number): number {
   if (mean <= 0) return 0;
   let randomNumber = 0;
-  while (randomNumber === 0) {
+  while (randomNumber === 0) { 
     randomNumber = activeGenerator();
   }
-  return -mean * Math.log(1 - randomNumber);
+  return -mean * Math.log(1 - randomNumber); 
 }
 
 /**
@@ -81,12 +94,11 @@ export function exponential(mean: number): number {
  */
 export function normal(mean: number, stdDev: number): number {
   if (stdDev < 0) return mean; 
-  
+
   let u = 0, v = 0;
   while (u === 0) u = activeGenerator(); 
-  while (v === 0) v = activeGenerator();
-  
+  while (v === 0) v = activeGenerator(); 
+
   const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
   return mean + z * stdDev;
 }
-

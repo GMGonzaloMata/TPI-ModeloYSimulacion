@@ -77,7 +77,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
   const getHourFromMinutes = (totalMinutes: number) => Math.floor(totalMinutes / 60);
   const getMinuteFromMinutes = (totalMinutes: number) => totalMinutes % 60;
 
-  const isSeedablePrng = params.prngMethod === 'LCG' || params.prngMethod === 'Mersenne-Twister' || params.prngMethod === 'ALEA';
+  const isSeedablePrng = params.prngMethod === 'LCG' || params.prngMethod === 'Mersenne-Twister'; // Removed ALEA
 
   return (
     <TooltipProvider>
@@ -162,7 +162,8 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
                         <SelectItem value="Math.random">Math.random (Nativo)</SelectItem>
                         <SelectItem value="LCG">LCG (Congruencial Lineal)</SelectItem>
                         <SelectItem value="Mersenne-Twister">Mersenne-Twister (random-js)</SelectItem>
-                        <SelectItem value="ALEA">ALEA (random-js)</SelectItem>
+                        {/* Removed ALEA SelectItem */}
+                        {/* <SelectItem value="ALEA">ALEA (random-js)</SelectItem> */}
                     </SelectContent>
                 </Select>
             </div>
