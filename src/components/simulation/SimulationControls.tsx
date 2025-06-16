@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Pause, RotateCcw, Settings2, HelpCircle, TestTube2, ClockIcon } from 'lucide-react';
+import { Settings2, HelpCircle, TestTube2 } from 'lucide-react';
 import type { SimulationParams, PrngMethodType } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -17,10 +17,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 interface SimulationControlsProps {
   params: SimulationParams;
   onParamChange: <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => void;
-  onStart: () => void;
-  onPause: () => void;
-  onReset: () => void;
-  isRunning: boolean;
   onRunChiSquareTest: () => void;
   currentLcgSeed: number;
 }
@@ -28,10 +24,6 @@ interface SimulationControlsProps {
 const SimulationControls: React.FC<SimulationControlsProps> = ({
   params,
   onParamChange,
-  onStart,
-  onPause,
-  onReset,
-  isRunning,
   onRunChiSquareTest,
   currentLcgSeed,
 }) => {
@@ -52,7 +44,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
     let value = parseInt(event.target.value, 10);
     if (key === 'simulationStartTime' || key === 'simulationEndTime') {
         if (!isNaN(value)) {
-            value = Math.max(0, Math.min(value, 24 * 60 -1)); // Clamp between 0 and 1439
+            value = Math.max(0, Math.min(value, 24 * 60 -1)); 
         }
     }
     if (!isNaN(value)) {
@@ -66,16 +58,8 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
   return (
     <TooltipProvider>
     <Card className="shadow-lg">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="font-headline text-lg flex items-center"><Settings2 className="mr-2 h-5 w-5" />Controles</CardTitle>
-        <div className="flex space-x-2">
-          <Button onClick={isRunning ? onPause : onStart} variant="outline" size="icon" aria-label={isRunning ? "Pausar simulación" : "Iniciar simulación"} disabled={isRunning && params.prngMethod === 'LCG' && params.lcgSeed <= 0}>
-            {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </Button>
-          <Button onClick={onReset} variant="outline" size="icon" aria-label="Reiniciar simulación">
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-        </div>
+      <CardHeader className="pb-2">
+        <CardTitle className="font-headline text-lg flex items-center"><Settings2 className="mr-2 h-5 w-5" />Parámetros de Simulación</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
         <ControlGroup title="Horarios de Simulación (minutos desde medianoche)">
@@ -113,14 +97,14 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
         </div>
 
         <ControlGroup title="Tiempos de Llegada (media, minutos)">
-          <InputControl label="Mañana" id="morningArrivalMean" value={params.morningArrivalMean} onChange={(e) => handleInputChange('morningArrivalMean', e)} min={0.1} step={0.1} />
-          <InputControl label="Pico" id="peakArrivalMean" value={params.peakArrivalMean} onChange={(e) => handleInputChange('peakArrivalMean', e)} min={0.1} step={0.1} />
-          <InputControl label="Tarde" id="afternoonArrivalMean" value={params.afternoonArrivalMean} onChange={(e) => handleInputChange('afternoonArrivalMean', e)} min={0.1} step={0.1} />
+          <InputControl label="Mañana (antes del pico)" id="morningArrivalMean" value={params.morningArrivalMean} onChange={(e) => handleInputChange('morningArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas antes de la hora pico. Ej: 7:30 AM."/>
+          <InputControl label="Pico (ej. 7:30-9:00 AM)" id="peakArrivalMean" value={params.peakArrivalMean} onChange={(e) => handleInputChange('peakArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas durante la hora pico."/>
+          <InputControl label="Tarde (después del pico)" id="afternoonArrivalMean" value={params.afternoonArrivalMean} onChange={(e) => handleInputChange('afternoonArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas después de la hora pico."/>
         </ControlGroup>
 
         <ControlGroup title="Duración Estacionamiento (minutos)">
-          <InputControl label="Media" id="parkingDurationMean" value={params.parkingDurationMean} onChange={(e) => handleInputChange('parkingDurationMean', e)} min={1} />
-          <InputControl label="Desv. Est." id="parkingDurationStdDev" value={params.parkingDurationStdDev} onChange={(e) => handleInputChange('parkingDurationStdDev', e)} min={0} />
+          <InputControl label="Media" id="parkingDurationMean" value={params.parkingDurationMean} onChange={(e) => handleInputChange('parkingDurationMean', e)} min={1} tooltip="Tiempo promedio que un vehículo permanece estacionado."/>
+          <InputControl label="Desv. Est." id="parkingDurationStdDev" value={params.parkingDurationStdDev} onChange={(e) => handleInputChange('parkingDurationStdDev', e)} min={0} tooltip="Desviación estándar del tiempo de estacionamiento."/>
         </ControlGroup>
         
         <ControlGroup title="Configuración PRNG">
@@ -158,7 +142,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
         <ControlGroup title="Prueba Chi-cuadrado (Uniformidad PRNG [0,1))">
             <InputControl label="Tamaño Muestra (N)" id="chiSquareSampleSize" value={params.chiSquareSampleSize} onChange={(e) => handleIntegerInputChange('chiSquareSampleSize', e)} min={10} step={10} tooltip="Número de muestras a generar para la prueba."/>
             <InputControl label="Intervalos (K)" id="chiSquareNumBins" value={params.chiSquareNumBins} onChange={(e) => handleIntegerInputChange('chiSquareNumBins', e)} min={2} step={1} tooltip="Número de intervalos para agrupar las muestras."/>
-            <Button onClick={onRunChiSquareTest} variant="outline" size="sm" className="w-full mt-2" disabled={isRunning}>
+            <Button onClick={onRunChiSquareTest} variant="outline" size="sm" className="w-full mt-2">
                 <TestTube2 className="mr-2 h-4 w-4" />
                 Ejecutar Prueba Chi-cuadrado
             </Button>
@@ -188,7 +172,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
 };
 
 const ControlGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div>
+  <div className="pt-2">
     <h4 className="text-sm font-semibold mb-2 text-muted-foreground">{title}</h4>
     <div className="space-y-3 pl-2 border-l-2 border-border">
       {children}
@@ -206,7 +190,7 @@ const InputControl: React.FC<{label: string, id: string, value: number, onChange
                 <TooltipTrigger asChild>
                     <HelpCircle className="h-3 w-3 ml-1 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-xs">
+                <TooltipContent side="top" className="max-w-xs text-xs p-2">
                     <p>{tooltip}</p>
                 </TooltipContent>
             </Tooltip>
