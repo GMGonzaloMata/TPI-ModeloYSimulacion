@@ -43,7 +43,7 @@ const initialParams: SimulationParams = {
   enableProjectedZone: false,
   simulationSpeed: 10,
   prngMethod: 'Math.random',
-  prngSeed: 1, // Renamed from lcgSeed
+  prngSeed: 1, 
   chiSquareSampleSize: 1000,
   chiSquareNumBins: 10,
   simulationStartTime: 6 * 60, 
@@ -462,7 +462,7 @@ export default function ParkSimPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <h3 className="text-2xl font-headline mb-4 text-center">Estado del Estacionamiento</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {activeZones.map((zone) => (
                     <ParkingZone key={zone.id} zone={zone} />
                   ))}
@@ -509,3 +509,4 @@ export default function ParkSimPage() {
     </div>
   );
 }
+
