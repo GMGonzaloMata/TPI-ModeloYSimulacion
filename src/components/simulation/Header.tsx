@@ -1,7 +1,6 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { ParkingSquare } from 'lucide-react';
 
 const Header: React.FC = () => {
   return (
@@ -15,7 +14,6 @@ const Header: React.FC = () => {
           className="mr-3 rounded-full"
           priority
         />
-        <ParkingSquare size={32} className="mr-3 hidden sm:block" />
         <h1 className="text-xl sm:text-2xl font-headline font-bold">ParkSim UCP</h1>
       </div>
     </header>

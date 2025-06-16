@@ -8,76 +8,76 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 96%; /* Maintained light gray for background */
-    --foreground: 0 0% 3.9%;
+    --background: 210 40% 98%; /* Slightly bluish very light gray - almost white */
+    --foreground: 210 10% 23%; /* Dark grayish blue */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 210 10% 23%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
+    --popover-foreground: 210 10% 23%;
     --primary: 207 100% 37%; /* UCP Blue */
     --primary-foreground: 0 0% 100%; /* White text on UCP Blue */
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 207 70% 55%; /* Lighter UCP Blue for accent */
-    --accent-foreground: 207 100% 15%; /* Dark blue text on lighter accent */
+    --secondary: 150 30% 94%; /* Very light green for secondary backgrounds */
+    --secondary-foreground: 150 60% 30%; /* Darker green for text on secondary */
+    --muted: 150 30% 96%; /* Even lighter green for muted */
+    --muted-foreground: 150 30% 65%; /* Medium green for muted text */
+    --accent: 150 60% 45%; /* A balanced green for accent */
+    --accent-foreground: 0 0% 100%; /* White text on green accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
+    --border: 210 20% 88%; /* Light blue-gray border */
+    --input: 210 20% 92%; /* Slightly lighter blue-gray input background */
     --ring: 207 100% 37%; /* UCP Blue for ring */
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 207 80% 50%; /* Blue */
+    --chart-2: 150 70% 40%; /* Green */
+    --chart-3: 207 60% 60%; /* Lighter Blue */
+    --chart-4: 150 50% 50%; /* Lighter Green */
+    --chart-5: 200 70% 55%; /* Another shade of Blue/Cyan */
     --radius: 0.5rem;
 
     /* Sidebar specific colors */
-    --sidebar-background: 0 0% 98%; 
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 207 100% 30%; /* Slightly darker UCP Blue for sidebar elements */
+    --sidebar-background: 210 30% 96%; 
+    --sidebar-foreground: 210 15% 30%;
+    --sidebar-primary: 207 100% 30%; 
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 207 70% 48%; /* Slightly darker lighter UCP Blue for sidebar accent */
+    --sidebar-accent: 150 60% 40%; 
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 210 20% 85%;
     --sidebar-ring: 207 100% 37%;
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --background: 210 20% 12%; /* Very dark blue-gray */
+    --foreground: 210 40% 90%; /* Light grayish blue */
+    --card: 210 20% 15%;
+    --card-foreground: 210 40% 90%;
+    --popover: 210 20% 15%;
+    --popover-foreground: 210 40% 90%;
     --primary: 207 100% 57%; /* Lighter UCP Blue for dark mode */
     --primary-foreground: 207 100% 15%; /* Darker blue text for contrast */
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 207 70% 75%; /* Even lighter UCP Blue for accent in dark mode */
-    --accent-foreground: 207 100% 10%; /* Very dark blue text for contrast */
-    --destructive: 0 62.8% 30.6%;
+    --secondary: 150 40% 20%; /* Dark green for secondary backgrounds */
+    --secondary-foreground: 150 60% 80%; /* Lighter green for text on dark secondary */
+    --muted: 150 40% 18%; /* Even darker green for muted */
+    --muted-foreground: 150 30% 55%; /* Medium-dark green for muted text */
+    --accent: 150 70% 55%; /* Brighter green for dark mode accent */
+    --accent-foreground: 150 70% 10%; /* Very dark green for text on accent */
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
+    --border: 210 20% 25%; /* Dark blue-gray border */
+    --input: 210 20% 22%; /* Slightly lighter dark blue-gray input background */
     --ring: 207 100% 57%; /* Lighter UCP Blue for ring in dark mode */
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --chart-1: 207 80% 60%;
+    --chart-2: 150 70% 50%;
+    --chart-3: 207 60% 70%;
+    --chart-4: 150 50% 60%;
+    --chart-5: 200 70% 65%;
 
     /* Sidebar specific colors - dark mode */
-    --sidebar-background: 240 5.9% 10%; 
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 207 100% 50%; /* Lighter UCP Blue for sidebar elements */
+    --sidebar-background: 210 25% 10%; 
+    --sidebar-foreground: 210 30% 85%;
+    --sidebar-primary: 207 100% 50%; 
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 207 70% 68%; /* Lighter UCP Blue accent for sidebar */
+    --sidebar-accent: 150 70% 50%; 
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-border: 210 20% 20%;
     --sidebar-ring: 207 100% 57%;
   }
 }
