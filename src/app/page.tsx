@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { ParkingZoneData, ParkingSpaceData, SimulationParams, SimulationStats, EventLogEntry, ChiSquareResult } from '@/types';
 import { exponential, normal, setPrng, getPrngInitializationSeed } from '@/lib/random';
 import { performChiSquareTest } from '@/lib/chiSquare';
-import { ArrowRight, BarChartBig, MonitorPlay, Pause, Play, RefreshCcw, RotateCcw } from 'lucide-react';
+import { ArrowRight, BarChartBig, MonitorPlay, Pause, Play, RefreshCcw, RotateCcw, Settings2 } from 'lucide-react';
 
 const MAX_EVENTS = 100;
 const PEAK_START_MINUTE = 7.5 * 60; 
@@ -275,7 +275,7 @@ export default function ParkSimPage() {
   const handleParamChange = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
     setParams(prev => {
       const newParams = { ...prev, [key]: value };
-      if (key === 'prngMethod' || (key === 'prngSeed' && (newParams.prngMethod === 'LCG' || newParams.prngMethod === 'Mersenne-Twister' || newParams.prngMethod === 'ALEA'))) {
+      if (key === 'prngMethod' || (key === 'prngSeed' && (newParams.prngMethod === 'LCG' || newParams.prngMethod === 'Mersenne-Twister'))) {
         setPrng(newParams.prngMethod, newParams.prngSeed);
         setChiSquareResults(null); 
       }
