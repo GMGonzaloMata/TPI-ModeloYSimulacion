@@ -33,8 +33,8 @@ const createSpaces = (idPrefix: string, count: number): ParkingSpaceData[] => {
 };
 
 const initialZones: ParkingZoneData[] = [
-  { id: 'internal', name: 'Zona Interna', capacity: 36, spaces: createSpaces('I', 36) },
-  { id: 'external', name: 'Zona Externa', capacity: 36, spaces: createSpaces('E', 36) },
+  { id: 'internal', name: 'Zona Interna', capacity: 35, spaces: createSpaces('I', 35) },
+  { id: 'external', name: 'Zona Externa', capacity: 34, spaces: createSpaces('E', 34) },
   { id: 'projected', name: 'Zona Proyectada (Expansión)', capacity: 24, spaces: createSpaces('P', 24), isProjected: true },
 ];
 
