@@ -86,6 +86,8 @@ export default function ParkSimPage() {
 
   useEffect(() => {
     setMounted(true);
+    // Initialize PRNG when component mounts, using a deterministic placeholder if no seed is set
+    // This ensures server and client have a consistent starting point if random numbers are needed before user interaction.
     setPrng(initialParams.prngMethod, initialParams.prngSeed);
     setStats(getInitialStats(params.simulationStartTime)); 
   }, []); 
@@ -95,14 +97,16 @@ export default function ParkSimPage() {
         ...currentStats,
         simulationClock: params.simulationStartTime,
     }));
+    // Reset simulation state only if not running and currently in config step (step 1)
+    // This prevents resetting if params are changed while viewing results (step 3)
     if (!isRunning && currentStep === 1) { 
         setEventLog([]);
         accumulatedParkingTimeRef.current = 0;
         departedVehiclesCountRef.current = 0;
-        nextArrivalDueRef.current = 0;
+        nextArrivalDueRef.current = 0; // Reset next arrival due time
         eventIdCounter = 0;
-        setZones(JSON.parse(JSON.stringify(initialZones))); 
-        updateStatistics();
+        setZones(JSON.parse(JSON.stringify(initialZones))); // Reset zones to initial state
+        updateStatistics(); // Update stats based on reset state
     }
   }, [params.simulationStartTime, params.simulationEndTime, params.prngMethod, params.prngSeed]);
 
@@ -167,7 +171,7 @@ export default function ParkSimPage() {
       setIsRunning(false);
       addEvent("Simulación finalizada por alcanzar hora de cierre.");
       toast({ title: "Simulación Finalizada", description: "Se alcanzó la hora de cierre configurada." });
-      setCurrentStep(3); 
+      setCurrentStep(3); // Automatically go to results step
       return;
     }
 
@@ -178,10 +182,11 @@ export default function ParkSimPage() {
       let vehicleDepartedThisTick = false;
       let vehicleArrivedThisTick = false;
 
+      // Vehicle departures
       newZones.forEach(zone => {
         zone.spaces.forEach(space => {
           if ((space.status === 'occupied' || (space.status === 'reserved' && params.enableReservations)) && space.departureTime !== undefined && space.departureTime <= stats.simulationClock) {
-            const durationParked = space.assignedDuration || params.parkingDurationMean; 
+            const durationParked = space.assignedDuration || params.parkingDurationMean; // Fallback if assignedDuration is somehow undefined
             accumulatedParkingTimeRef.current += durationParked;
             departedVehiclesCountRef.current +=1;
             
@@ -189,17 +194,18 @@ export default function ParkSimPage() {
             space.status = 'free';
             delete space.vehicleId;
             delete space.departureTime;
-            delete space.assignedDuration; 
+            delete space.assignedDuration; // Clear assigned duration on departure
             vehicleDepartedThisTick = true;
             setStats(prev => ({...prev, totalDepartures: prev.totalDepartures + 1}));
           }
         });
       });
 
+      // Vehicle arrivals
       if (nextArrivalDueRef.current <= 0) {
         setStats(prev => ({...prev, totalArrivals: prev.totalArrivals + 1}));
         let allocated = false;
-        const vehicleId = `V-${stats.totalArrivals + 1 - stats.totalRejections}`; 
+        const vehicleId = `V-${stats.totalArrivals + 1 - stats.totalRejections}`; // Ensures unique ID even with rejections
         const zonePriority = ['internal', 'external'];
         if (params.enableProjectedZone) {
           zonePriority.push('projected');
@@ -213,12 +219,12 @@ export default function ParkSimPage() {
               freeSpace.status = 'occupied';
               freeSpace.vehicleId = vehicleId;
               const duration = Math.max(1, Math.round(normal(params.parkingDurationMean, params.parkingDurationStdDev)));
-              freeSpace.assignedDuration = duration; 
+              freeSpace.assignedDuration = duration; // Store the actual duration
               freeSpace.departureTime = stats.simulationClock + duration;
               addEvent(`Vehículo ${vehicleId} llegó y estacionó en ${zone.name} espacio ${freeSpace.id}. Duración: ${duration} min.`);
               allocated = true;
               vehicleArrivedThisTick = true;
-              break; 
+              break; // Vehicle allocated, stop searching zones
             }
           }
         }
@@ -226,18 +232,21 @@ export default function ParkSimPage() {
         if (!allocated) {
           setStats(prev => ({...prev, totalRejections: prev.totalRejections + 1}));
           addEvent(`Vehículo (ID Rechazo ${stats.totalRejections +1}) rechazado. Sin espacio disponible.`);
-          vehicleArrivedThisTick = true; 
+          vehicleArrivedThisTick = true; // Still counts as an arrival attempt for event log clarity
         }
         
+        // Schedule next arrival
         let meanArrival;
         if (stats.simulationClock >= PEAK_START_MINUTE && stats.simulationClock < PEAK_END_MINUTE) {
           meanArrival = params.peakArrivalMean;
         } else if (stats.simulationClock < PEAK_START_MINUTE || stats.simulationClock >= params.simulationEndTime) {
+          // Use morning arrival mean if before peak or after simulation end (though latter shouldn't trigger new arrivals)
           meanArrival = params.morningArrivalMean; 
+          // If after peak but before simulation end, use afternoon mean
           if (stats.simulationClock >= PEAK_END_MINUTE && stats.simulationClock < params.simulationEndTime) { 
             meanArrival = params.afternoonArrivalMean;
           }
-        } else { 
+        } else { // This covers after peak and before end time, which is afternoon
             meanArrival = params.afternoonArrivalMean;
         }
         nextArrivalDueRef.current = Math.max(1, Math.round(exponential(meanArrival)));
@@ -246,6 +255,7 @@ export default function ParkSimPage() {
          nextArrivalDueRef.current -=1;
       }
 
+      // Update statistics if any relevant event occurred
       if (vehicleDepartedThisTick || vehicleArrivedThisTick) {
          updateStatistics();
       }
@@ -277,10 +287,11 @@ export default function ParkSimPage() {
       const newParams = { ...prev, [key]: value };
       if (key === 'prngMethod' || (key === 'prngSeed' && (newParams.prngMethod === 'LCG' || newParams.prngMethod === 'Mersenne-Twister'))) {
         setPrng(newParams.prngMethod, newParams.prngSeed);
-        setChiSquareResults(null); 
+        setChiSquareResults(null); // Invalidate Chi-Square results if PRNG/seed changes
       }
+      // If simulation time range changes WHILE IN CONFIG STEP and NOT RUNNING, reset key simulation variables
       if ((key === 'simulationStartTime' || key === 'simulationEndTime') && !isRunning && currentStep === 1) {
-         setStats(getInitialStats(newParams.simulationStartTime));
+         setStats(getInitialStats(newParams.simulationStartTime)); // Reset stats with new start time
          setEventLog([]);
          accumulatedParkingTimeRef.current = 0;
          departedVehiclesCountRef.current = 0;
@@ -294,18 +305,21 @@ export default function ParkSimPage() {
   };
 
   const handleActualStart = () => { 
+    // Validate simulation times
     if (params.simulationStartTime >= params.simulationEndTime) {
         toast({ title: "Error de Configuración", description: "La hora de inicio debe ser anterior a la hora de fin.", variant: "destructive"});
-        setIsRunning(false);
+        setIsRunning(false); // Ensure it's not set to running
         return;
     }
+    // Check if simulation has already reached its end time
     if (stats.simulationClock >= params.simulationEndTime) {
       addEvent("La simulación ya ha alcanzado la hora de finalización. Reinicie para comenzar de nuevo.");
       toast({ title: "Simulación Finalizada", description: "Reinicie para comenzar de nuevo.", variant: "default" });
       setIsRunning(false);
-      setCurrentStep(3);
+      setCurrentStep(3); // Go to results if already ended
       return;
     }
+    // If simulation clock is before start time, adjust it
     if (stats.simulationClock < params.simulationStartTime) {
       setStats(prev => ({...prev, simulationClock: params.simulationStartTime}));
       addEvent(`Reloj ajustado al inicio de la simulación: ${formatTime(params.simulationStartTime)}.`);
@@ -313,14 +327,15 @@ export default function ParkSimPage() {
 
     setIsRunning(true);
     addEvent("Simulación iniciada/continuada.");
-    setPrng(params.prngMethod, params.prngSeed); 
+    setPrng(params.prngMethod, params.prngSeed); // Re-seed PRNG on every start/resume for consistency if seed is used
+    // Recalculate next arrival if it was 0 (e.g., on first start or after reset)
     if(nextArrivalDueRef.current <=0 ) { 
         let meanArrival;
         if (stats.simulationClock >= PEAK_START_MINUTE && stats.simulationClock < PEAK_END_MINUTE) {
           meanArrival = params.peakArrivalMean;
-        } else if (stats.simulationClock < PEAK_START_MINUTE) { 
+        } else if (stats.simulationClock < PEAK_START_MINUTE) { // Before peak
           meanArrival = params.morningArrivalMean;
-        } else { 
+        } else { // After peak (includes afternoon)
           meanArrival = params.afternoonArrivalMean;
         }
         nextArrivalDueRef.current = Math.max(1, Math.round(exponential(meanArrival)));
@@ -332,6 +347,7 @@ export default function ParkSimPage() {
         toast({ title: "Error al Iniciar", description: "La hora de inicio debe ser anterior a la hora de fin.", variant: "destructive"});
         return;
     }
+    // Full reset of simulation state for a fresh start
     setStats(getInitialStats(params.simulationStartTime));
     setEventLog([]);
     setZones(JSON.parse(JSON.stringify(initialZones)));
@@ -340,7 +356,7 @@ export default function ParkSimPage() {
     nextArrivalDueRef.current = 0;
     eventIdCounter = 0;
     
-    handleActualStart(); 
+    handleActualStart(); // Attempt to start the simulation logic
     if (stats.simulationClock < params.simulationEndTime) { // Check again in case handleActualStart set isRunning to false
       setCurrentStep(2);
     }
@@ -353,19 +369,19 @@ export default function ParkSimPage() {
 
   const handleFullReset = () => { 
     setIsRunning(false);
-    setParams(initialParams); 
+    setParams(initialParams); // Reset parameters to their defaults
     setZones(JSON.parse(JSON.stringify(initialZones)));
-    setStats(getInitialStats(initialParams.simulationStartTime)); 
+    setStats(getInitialStats(initialParams.simulationStartTime)); // Reset stats to defaults
     setEventLog([]);
     setChiSquareResults(null);
     accumulatedParkingTimeRef.current = 0;
     departedVehiclesCountRef.current = 0;
     nextArrivalDueRef.current = 0;
     eventIdCounter = 0;
-    setPrng(initialParams.prngMethod, initialParams.prngSeed); 
+    setPrng(initialParams.prngMethod, initialParams.prngSeed); // Reset PRNG to defaults
     addEvent("Simulación reiniciada a valores por defecto.");
     toast({ title: "Simulación Reiniciada", description: "Todos los parámetros y estados han sido restaurados." });
-    updateStatistics(); 
+    updateStatistics(); // Update display with reset stats
   };
 
   const handleResetAndGoToConfig = () => {
@@ -378,6 +394,7 @@ export default function ParkSimPage() {
       toast({ title: "Prueba Chi-cuadrado", description: "Detenga la simulación para ejecutar la prueba.", variant: "destructive" });
       return;
     }
+    // Use the currently configured seed for the test if the PRNG method is seedable
     const seedForTest = (params.prngMethod !== 'Math.random') ? params.prngSeed : undefined;
     const results = await performChiSquareTest(
       params.chiSquareSampleSize,
@@ -395,14 +412,15 @@ export default function ParkSimPage() {
       // If moving to config from sim/results, pause if running. Full reset handled by dedicated button.
       if(isRunning) handlePause();
     }
-    if (currentStep === 2 && step === 3) { 
+    if (currentStep === 2 && step === 3) { // Moving from Sim to Results
       if (isRunning) {
-        handlePause(); 
+        handlePause(); // Pause if running
       }
     }
     setCurrentStep(step);
   };
 
+  // Effect to ensure statistics are updated whenever zones or relevant params change.
   useEffect(() => {
     updateStatistics();
   }, [zones, params.enableProjectedZone, params.enableReservations, updateStatistics]);
@@ -415,6 +433,10 @@ export default function ParkSimPage() {
     const m = Math.floor(minutes % 60);
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
+
+  if (!mounted) {
+    return <div className="flex justify-center items-center min-h-screen">Cargando Simulador...</div>;
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -462,7 +484,7 @@ export default function ParkSimPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <h3 className="text-2xl font-headline mb-4 text-center">Estado del Estacionamiento</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
                   {activeZones.map((zone) => (
                     <ParkingZone key={zone.id} zone={zone} />
                   ))}
