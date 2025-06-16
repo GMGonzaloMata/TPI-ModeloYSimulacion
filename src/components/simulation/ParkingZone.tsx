@@ -25,7 +25,7 @@ const ParkingZone: React.FC<ParkingZoneProps> = ({ zone }) => {
       </CardHeader>
       <CardContent>
         <Progress value={occupancyPercentage} className="mb-4 h-3" />
-        <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-2">
           {zone.spaces.map((space) => (
             <ParkingSpace key={space.id} id={space.id} status={space.status} />
           ))}
