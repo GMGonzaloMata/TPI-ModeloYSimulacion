@@ -22,8 +22,6 @@ export function getPrngInitializationSeed(): number | undefined {
   return currentPrngInitSeed;
 }
 
-// This function is mostly for the LCG specific case if its internal state is needed elsewhere,
-// for random-js instances, the state is encapsulated.
 export function getLcgInternalSeedValue(): number {
     return lcgInternalSeed;
 }
@@ -35,7 +33,7 @@ export function getActiveGenerator(): () => number {
 
 export function setPrng(method: PrngMethodType, seed?: number) {
   currentPrngMethod = method;
-  currentPrngInitSeed = seed; // Store the seed used for this PRNG setup
+  currentPrngInitSeed = seed; 
 
   const effectiveSeed = seed !== undefined ? seed : Date.now();
 
@@ -51,13 +49,13 @@ export function setPrng(method: PrngMethodType, seed?: number) {
     randomJsInstance = new Random(engine);
     activeGenerator = () => randomJsInstance!.realZeroToOneExclusive();
   } else if (method === 'ALEA') {
-    const engine = Alea(effectiveSeed); // Use Alea as a factory function
+    const engine = Alea(effectiveSeed); // Alea is a factory function
     randomJsInstance = new Random(engine);
     activeGenerator = () => randomJsInstance!.realZeroToOneExclusive();
   } else { // Math.random
     activeGenerator = Math.random;
     randomJsInstance = null;
-    currentPrngInitSeed = undefined; // Math.random is not seeded externally
+    currentPrngInitSeed = undefined; 
   }
 }
 
