@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -19,7 +20,7 @@ const ParkingZone: React.FC<ParkingZoneProps> = ({ zone }) => {
       <CardHeader>
         <CardTitle className="font-headline text-xl">{zone.name}</CardTitle>
         <CardDescription>
-          {occupiedCount} / {zone.capacity} spaces occupied
+          {occupiedCount} / {zone.capacity} espacios ocupados
         </CardDescription>
       </CardHeader>
       <CardContent>

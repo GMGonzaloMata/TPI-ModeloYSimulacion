@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { ParkingSquare } from 'lucide-react'; // Changed from ParkingMeter
+import { ParkingSquare } from 'lucide-react';
 
 const Header: React.FC = () => {
   return (

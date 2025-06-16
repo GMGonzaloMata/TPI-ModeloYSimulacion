@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 const Footer: React.FC = () => {
@@ -5,7 +6,7 @@ const Footer: React.FC = () => {
     <footer className="bg-card text-card-foreground p-4 text-center border-t mt-auto">
       <div className="container mx-auto">
         <p className="text-sm">
-          &copy; {new Date().getFullYear()} ParkSim UCP. Simulation for educational purposes.
+          &copy; {new Date().getFullYear()} ParkSim UCP. Simulación con fines educativos.
         </p>
       </div>
     </footer>

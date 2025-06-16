@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -15,41 +16,43 @@ const ParkingSpace: React.FC<ParkingSpaceProps> = ({ status, id }) => {
   
   let content;
   let SvgIcon;
-  let statusText;
+  let statusTextKey: 'occupied' | 'reserved' | 'free';
   let colorClasses = "";
+
+  const statusTexts = {
+    occupied: "Ocupado",
+    reserved: "Reservado",
+    free: "Libre"
+  };
 
   switch (status) {
     case 'occupied':
       SvgIcon = CarFront;
-      statusText = "Occupied";
+      statusTextKey = "occupied";
       colorClasses = "bg-destructive/20 border-destructive text-destructive-foreground hover:bg-destructive/30";
       break;
     case 'reserved':
       SvgIcon = ParkingCircle;
-      statusText = "Reserved";
+      statusTextKey = "reserved";
       colorClasses = "bg-primary/20 border-primary text-primary-foreground hover:bg-primary/30";
       break;
     case 'free':
     default:
-      SvgIcon = ParkingSquare; // Represents an empty, available square
-      statusText = "Free";
+      SvgIcon = ParkingSquare; 
+      statusTextKey = "free";
       colorClasses = "bg-accent/20 border-accent text-accent-foreground hover:bg-accent/30";
       break;
   }
 
-  // For occupied/reserved, the icon color needs to contrast with its specific background,
-  // but text-destructive-foreground/primary-foreground might be too light for a light background.
-  // Let's use text-destructive, text-primary for icons on their respective light backgrounds for clarity.
   const iconColorClass = status === 'occupied' ? 'text-destructive' : status === 'reserved' ? 'text-primary' : 'text-accent';
-
 
   content = <SvgIcon className={cn("w-5 h-5 md:w-6 md:h-6", iconColorClass)} />;
   
   return (
     <div 
       className={cn(baseClasses, colorClasses)}
-      aria-label={`Parking space ${id}: ${statusText}`}
-      role="img" // More appropriate for visual representation of state
+      aria-label={`Espacio de estacionamiento ${id}: ${statusTexts[statusTextKey]}`}
+      role="img"
     >
       {content}
     </div>

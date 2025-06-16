@@ -1,3 +1,4 @@
+
 export type ParkingSpaceStatus = 'free' | 'occupied' | 'reserved';
 
 export interface ParkingSpaceData {
@@ -15,6 +16,8 @@ export interface ParkingZoneData {
   isProjected?: boolean;
 }
 
+export type PrngMethodType = 'Math.random' | 'LCG';
+
 export interface SimulationParams {
   morningArrivalMean: number;
   peakArrivalMean: number;
@@ -24,6 +27,10 @@ export interface SimulationParams {
   enableReservations: boolean;
   enableProjectedZone: boolean;
   simulationSpeed: number; // multiplier for simulation tick speed
+  prngMethod: PrngMethodType;
+  lcgSeed: number;
+  chiSquareSampleSize: number;
+  chiSquareNumBins: number;
 }
 
 export interface SimulationStats {
@@ -46,4 +53,16 @@ export interface EventLogEntry {
   id: string;
   timestamp: string; // Formatted time
   message: string;
+}
+
+export interface ChiSquareResult {
+  statistic: number;
+  degreesOfFreedom: number;
+  N: number;
+  K: number;
+  prngMethodUsed: PrngMethodType;
+  lcgSeedUsed?: number;
+  interpretation: string;
+  observedFrequencies?: number[];
+  expectedFrequencies?: number[];
 }
