@@ -1,22 +1,22 @@
 
 'use server';
 import type { ChiSquareResult, PrngMethodType } from '@/types';
-import { setPrng, getActivePrngMethod, getLcgSeed, setLcgSeed as setInternalLcgSeed, getActiveGenerator } from './random';
+import { setPrng, getActivePrngMethod, getPrngInitializationSeed, getActiveGenerator } from './random';
 
 export async function generateSamples(count: number, method: PrngMethodType, seed?: number): Promise<number[]> {
   const originalMethod = getActivePrngMethod();
-  const originalSeed = getLcgSeed();
+  const originalSeed = getPrngInitializationSeed();
 
-  setPrng(method, seed);
+  setPrng(method, seed); // Temporarily set PRNG for sample generation
 
   const samples: number[] = [];
-  const currentGenerator = getActiveGenerator(); // Get the currently set generator
+  const currentGeneratorForTest = getActiveGenerator(); 
 
   for (let i = 0; i < count; i++) {
-    samples.push(currentGenerator());
+    samples.push(currentGeneratorForTest());
   }
   
-  setPrng(originalMethod, originalSeed); 
+  setPrng(originalMethod, originalSeed); // Restore original PRNG state
   return samples;
 }
 
@@ -24,7 +24,7 @@ export async function performChiSquareTest(
   N: number, 
   K: number, 
   prngMethod: PrngMethodType,
-  lcgSeedForTest?: number
+  prngSeedForTest?: number 
 ): Promise<ChiSquareResult> {
   if (N <= 0 || K <= 1 || N < K * 5) { 
     return {
@@ -33,26 +33,26 @@ export async function performChiSquareTest(
       N,
       K,
       prngMethodUsed: prngMethod,
-      lcgSeedUsed: prngMethod === 'LCG' ? lcgSeedForTest : undefined,
+      prngSeedUsed: (prngMethod !== 'Math.random' && prngSeedForTest !== undefined) ? prngSeedForTest : undefined,
       interpretation: "N debe ser mayor que 0, K mayor que 1, y N >= K*5 para una prueba válida.",
       observedFrequencies: [],
       expectedFrequencies: [],
     };
   }
 
-  const samples = await generateSamples(N, prngMethod, prngMethod === 'LCG' ? lcgSeedForTest : undefined);
+  const samples = await generateSamples(N, prngMethod, (prngMethod !== 'Math.random') ? prngSeedForTest : undefined);
 
   const observedFrequencies = new Array(K).fill(0);
   const expectedFrequency = N / K;
 
-  if (expectedFrequency === 0) { // Prevent division by zero if K > N significantly
+  if (expectedFrequency === 0) { 
      return {
       statistic: 0,
       degreesOfFreedom: K - 1,
       N,
       K,
       prngMethodUsed: prngMethod,
-      lcgSeedUsed: prngMethod === 'LCG' ? lcgSeedForTest : undefined,
+      prngSeedUsed: (prngMethod !== 'Math.random' && prngSeedForTest !== undefined) ? prngSeedForTest : undefined,
       interpretation: "La frecuencia esperada es 0, no se puede calcular Chi-cuadrado. Verifique N y K.",
       observedFrequencies,
       expectedFrequencies: new Array(K).fill(expectedFrequency),
@@ -69,25 +69,23 @@ export async function performChiSquareTest(
     chiSquareStatistic += Math.pow(observedFrequencies[i] - expectedFrequency, 2) / expectedFrequency;
   }
 
-
   const degreesOfFreedom = K - 1;
-
   
   let interpretation = `Estadístico χ²: ${chiSquareStatistic.toFixed(3)}, Grados de Libertad: ${degreesOfFreedom}. `;
-  interpretation += `Un valor de χ² más bajo en relación con los grados de libertad (K-1 = ${degreesOfFreedom}) sugiere que el generador PRNG (${prngMethod}${prngMethod === 'LCG' && lcgSeedForTest !== undefined ? `, semilla ${lcgSeedForTest}` : ''}) se ajusta bien a una distribución uniforme. `;
+  interpretation += `Un valor de χ² más bajo en relación con los grados de libertad (K-1 = ${degreesOfFreedom}) sugiere que el generador PRNG (${prngMethod}`;
+  if (prngMethod !== 'Math.random' && prngSeedForTest !== undefined) {
+    interpretation += `, semilla ${prngSeedForTest}`;
+  }
+  interpretation += `) se ajusta bien a una distribución uniforme. `;
   interpretation += `Consulte una tabla de Chi-cuadrado para determinar la significancia (p.ej., para α=0.05).`;
   
-  
-  
-
-
   return {
     statistic: chiSquareStatistic,
     degreesOfFreedom,
     N,
     K,
     prngMethodUsed: prngMethod,
-    lcgSeedUsed: prngMethod === 'LCG' ? lcgSeedForTest : undefined,
+    prngSeedUsed: (prngMethod !== 'Math.random' && prngSeedForTest !== undefined) ? prngSeedForTest : undefined,
     interpretation,
     observedFrequencies,
     expectedFrequencies: new Array(K).fill(expectedFrequency),

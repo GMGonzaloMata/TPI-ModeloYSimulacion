@@ -13,25 +13,30 @@ import { Settings2, HelpCircle, TestTube2 } from 'lucide-react';
 import type { SimulationParams, PrngMethodType } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-
 interface SimulationControlsProps {
   params: SimulationParams;
   onParamChange: <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => void;
   onRunChiSquareTest: () => void;
-  currentLcgSeed: number;
 }
+
+const hoursOptions = Array.from({ length: 24 }, (_, i) => ({ value: i, label: String(i).padStart(2, '0') }));
+const minutesOptions = [
+  { value: 0, label: '00' },
+  { value: 15, label: '15' },
+  { value: 30, label: '30' },
+  { value: 45, label: '45' },
+];
 
 const SimulationControls: React.FC<SimulationControlsProps> = ({
   params,
   onParamChange,
   onRunChiSquareTest,
-  currentLcgSeed,
 }) => {
   const handleSliderChange = (key: keyof SimulationParams, value: number[]) => {
     onParamChange(key, value[0] as any);
   };
 
-  const handleInputChange = (key: keyof SimulationParams, event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNumericInputChange = (key: keyof SimulationParams, event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(event.target.value);
      if (!isNaN(value)) {
         onParamChange(key, value as any);
@@ -42,11 +47,6 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
   
   const handleIntegerInputChange = (key: keyof SimulationParams, event: React.ChangeEvent<HTMLInputElement>) => {
     let value = parseInt(event.target.value, 10);
-    if (key === 'simulationStartTime' || key === 'simulationEndTime') {
-        if (!isNaN(value)) {
-            value = Math.max(0, Math.min(value, 24 * 60 -1)); 
-        }
-    }
     if (!isNaN(value)) {
         onParamChange(key, value as any);
     } else if (event.target.value === "") {
@@ -54,6 +54,30 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
     }
   };
 
+  const handleTimeChange = (
+    paramKey: 'simulationStartTime' | 'simulationEndTime',
+    type: 'hour' | 'minute',
+    value: string
+  ) => {
+    const numericValue = parseInt(value, 10);
+    let currentTotalMinutes = params[paramKey];
+    let currentHour = Math.floor(currentTotalMinutes / 60);
+    let currentMinute = currentTotalMinutes % 60;
+
+    if (type === 'hour') {
+      currentHour = numericValue;
+    } else {
+      currentMinute = numericValue;
+    }
+    
+    const newTotalMinutes = currentHour * 60 + currentMinute;
+    onParamChange(paramKey, newTotalMinutes as any);
+  };
+
+  const getHourFromMinutes = (totalMinutes: number) => Math.floor(totalMinutes / 60);
+  const getMinuteFromMinutes = (totalMinutes: number) => totalMinutes % 60;
+
+  const isSeedablePrng = params.prngMethod === 'LCG' || params.prngMethod === 'Mersenne-Twister' || params.prngMethod === 'ALEA';
 
   return (
     <TooltipProvider>
@@ -62,27 +86,44 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
         <CardTitle className="font-headline text-lg flex items-center"><Settings2 className="mr-2 h-5 w-5" />Parámetros de Simulación</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
-        <ControlGroup title="Horarios de Simulación (minutos desde medianoche)">
-            <InputControl 
-                label="Hora Inicio" 
-                id="simulationStartTime" 
-                value={params.simulationStartTime} 
-                onChange={(e) => handleIntegerInputChange('simulationStartTime', e)} 
-                min={0} 
-                max={24*60-1}
-                step={15}
-                tooltip="Minuto del día para iniciar (0-1439). Ej: 360 para 6:00 AM."
-            />
-            <InputControl 
-                label="Hora Fin" 
-                id="simulationEndTime" 
-                value={params.simulationEndTime} 
-                onChange={(e) => handleIntegerInputChange('simulationEndTime', e)} 
-                min={0} 
-                max={24*60-1}
-                step={15}
-                tooltip="Minuto del día para finalizar (0-1439). Ej: 1320 para 10:00 PM."
-            />
+        <ControlGroup title="Horarios de Simulación">
+            <div className="space-y-2">
+                <Label className="text-xs">Hora Inicio (HH:MM)</Label>
+                <div className="flex gap-2">
+                    <Select value={String(getHourFromMinutes(params.simulationStartTime))} onValueChange={(h) => handleTimeChange('simulationStartTime', 'hour', h)}>
+                        <SelectTrigger className="h-8 text-xs w-1/2"><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            {hoursOptions.map(opt => <SelectItem key={`start-h-${opt.value}`} value={String(opt.value)}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Select value={String(getMinuteFromMinutes(params.simulationStartTime))} onValueChange={(m) => handleTimeChange('simulationStartTime', 'minute', m)}>
+                        <SelectTrigger className="h-8 text-xs w-1/2"><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            {minutesOptions.map(opt => <SelectItem key={`start-m-${opt.value}`} value={String(opt.value)}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <div className="space-y-2">
+                <Label className="text-xs">Hora Fin (HH:MM)</Label>
+                 <div className="flex gap-2">
+                    <Select value={String(getHourFromMinutes(params.simulationEndTime))} onValueChange={(h) => handleTimeChange('simulationEndTime', 'hour', h)}>
+                        <SelectTrigger className="h-8 text-xs w-1/2"><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            {hoursOptions.map(opt => <SelectItem key={`end-h-${opt.value}`} value={String(opt.value)}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Select value={String(getMinuteFromMinutes(params.simulationEndTime))} onValueChange={(m) => handleTimeChange('simulationEndTime', 'minute', m)}>
+                        <SelectTrigger className="h-8 text-xs w-1/2"><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            {minutesOptions.map(opt => <SelectItem key={`end-m-${opt.value}`} value={String(opt.value)}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+             <div className="text-xs text-muted-foreground pl-1">
+                Actual: {String(getHourFromMinutes(params.simulationStartTime)).padStart(2,'0')}:{String(getMinuteFromMinutes(params.simulationStartTime)).padStart(2,'0')} - {String(getHourFromMinutes(params.simulationEndTime)).padStart(2,'0')}:{String(getMinuteFromMinutes(params.simulationEndTime)).padStart(2,'0')}
+            </div>
         </ControlGroup>
 
         <div>
@@ -97,14 +138,14 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
         </div>
 
         <ControlGroup title="Tiempos de Llegada (media, minutos)">
-          <InputControl label="Mañana (antes del pico)" id="morningArrivalMean" value={params.morningArrivalMean} onChange={(e) => handleInputChange('morningArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas antes de la hora pico. Ej: 7:30 AM."/>
-          <InputControl label="Pico (ej. 7:30-9:00 AM)" id="peakArrivalMean" value={params.peakArrivalMean} onChange={(e) => handleInputChange('peakArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas durante la hora pico."/>
-          <InputControl label="Tarde (después del pico)" id="afternoonArrivalMean" value={params.afternoonArrivalMean} onChange={(e) => handleInputChange('afternoonArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas después de la hora pico."/>
+          <InputControl label="Mañana (antes del pico)" id="morningArrivalMean" value={params.morningArrivalMean} onChange={(e) => handleNumericInputChange('morningArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas antes de la hora pico."/>
+          <InputControl label="Pico (ej. 7:30-9:00 AM)" id="peakArrivalMean" value={params.peakArrivalMean} onChange={(e) => handleNumericInputChange('peakArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas durante la hora pico."/>
+          <InputControl label="Tarde (después del pico)" id="afternoonArrivalMean" value={params.afternoonArrivalMean} onChange={(e) => handleNumericInputChange('afternoonArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas después de la hora pico."/>
         </ControlGroup>
 
         <ControlGroup title="Duración Estacionamiento (minutos)">
-          <InputControl label="Media" id="parkingDurationMean" value={params.parkingDurationMean} onChange={(e) => handleInputChange('parkingDurationMean', e)} min={1} tooltip="Tiempo promedio que un vehículo permanece estacionado."/>
-          <InputControl label="Desv. Est." id="parkingDurationStdDev" value={params.parkingDurationStdDev} onChange={(e) => handleInputChange('parkingDurationStdDev', e)} min={0} tooltip="Desviación estándar del tiempo de estacionamiento."/>
+          <InputControl label="Media" id="parkingDurationMean" value={params.parkingDurationMean} onChange={(e) => handleNumericInputChange('parkingDurationMean', e)} min={1} tooltip="Tiempo promedio que un vehículo permanece estacionado."/>
+          <InputControl label="Desv. Est." id="parkingDurationStdDev" value={params.parkingDurationStdDev} onChange={(e) => handleNumericInputChange('parkingDurationStdDev', e)} min={0} tooltip="Desviación estándar del tiempo de estacionamiento."/>
         </ControlGroup>
         
         <ControlGroup title="Configuración PRNG">
@@ -120,22 +161,21 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
                     <SelectContent>
                         <SelectItem value="Math.random">Math.random (Nativo)</SelectItem>
                         <SelectItem value="LCG">LCG (Congruencial Lineal)</SelectItem>
+                        <SelectItem value="Mersenne-Twister">Mersenne-Twister (random-js)</SelectItem>
+                        <SelectItem value="ALEA">ALEA (random-js)</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
-            {params.prngMethod === 'LCG' && (
+            {isSeedablePrng && (
                 <InputControl 
-                    label="Semilla LCG" 
-                    id="lcgSeed" 
-                    value={params.lcgSeed} 
-                    onChange={(e) => handleIntegerInputChange('lcgSeed', e)} 
+                    label="Semilla PRNG" 
+                    id="prngSeed" 
+                    value={params.prngSeed} 
+                    onChange={(e) => handleIntegerInputChange('prngSeed', e)} 
                     min={1} 
                     step={1}
-                    tooltip="Semilla inicial para el Generador Congruencial Lineal. Cambiarla reinicia la secuencia LCG."
+                    tooltip="Semilla inicial para el PRNG seleccionado (si aplica). Cambiarla reinicia la secuencia."
                 />
-            )}
-             {params.prngMethod === 'LCG' && (
-                <div className="text-xs text-muted-foreground pl-2">Semilla actual LCG (sim): {currentLcgSeed}</div>
             )}
         </ControlGroup>
 

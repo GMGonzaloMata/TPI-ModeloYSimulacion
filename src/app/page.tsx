@@ -12,7 +12,7 @@ import ChiSquareResultsDisplay from '@/components/simulation/ChiSquareResultsDis
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import type { ParkingZoneData, ParkingSpaceData, SimulationParams, SimulationStats, EventLogEntry, ChiSquareResult } from '@/types';
-import { exponential, normal, setPrng, getLcgSeed as getRandomLcgSeed, getActiveGenerator } from '@/lib/random';
+import { exponential, normal, setPrng, getPrngInitializationSeed } from '@/lib/random';
 import { performChiSquareTest } from '@/lib/chiSquare';
 import { ArrowRight, BarChartBig, MonitorPlay, Pause, Play, RefreshCcw, RotateCcw } from 'lucide-react';
 
@@ -43,7 +43,7 @@ const initialParams: SimulationParams = {
   enableProjectedZone: false,
   simulationSpeed: 10,
   prngMethod: 'Math.random',
-  lcgSeed: 1,
+  prngSeed: 1, // Renamed from lcgSeed
   chiSquareSampleSize: 1000,
   chiSquareNumBins: 10,
   simulationStartTime: 6 * 60, 
@@ -86,7 +86,7 @@ export default function ParkSimPage() {
 
   useEffect(() => {
     setMounted(true);
-    setPrng(initialParams.prngMethod, initialParams.lcgSeed);
+    setPrng(initialParams.prngMethod, initialParams.prngSeed);
     setStats(getInitialStats(params.simulationStartTime)); 
   }, []); 
 
@@ -95,7 +95,7 @@ export default function ParkSimPage() {
         ...currentStats,
         simulationClock: params.simulationStartTime,
     }));
-    if (!isRunning && currentStep === 1) { // Only reset fully if in config step and params change
+    if (!isRunning && currentStep === 1) { 
         setEventLog([]);
         accumulatedParkingTimeRef.current = 0;
         departedVehiclesCountRef.current = 0;
@@ -104,7 +104,7 @@ export default function ParkSimPage() {
         setZones(JSON.parse(JSON.stringify(initialZones))); 
         updateStatistics();
     }
-  }, [params.simulationStartTime, params.simulationEndTime, params.prngMethod, params.lcgSeed]);
+  }, [params.simulationStartTime, params.simulationEndTime, params.prngMethod, params.prngSeed]);
 
 
   const addEvent = useCallback((message: string) => {
@@ -167,7 +167,7 @@ export default function ParkSimPage() {
       setIsRunning(false);
       addEvent("Simulación finalizada por alcanzar hora de cierre.");
       toast({ title: "Simulación Finalizada", description: "Se alcanzó la hora de cierre configurada." });
-      setCurrentStep(3); // Automatically move to results step
+      setCurrentStep(3); 
       return;
     }
 
@@ -275,8 +275,8 @@ export default function ParkSimPage() {
   const handleParamChange = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
     setParams(prev => {
       const newParams = { ...prev, [key]: value };
-      if (key === 'prngMethod' || (key === 'lcgSeed' && newParams.prngMethod === 'LCG')) {
-        setPrng(newParams.prngMethod, newParams.lcgSeed);
+      if (key === 'prngMethod' || (key === 'prngSeed' && (newParams.prngMethod === 'LCG' || newParams.prngMethod === 'Mersenne-Twister' || newParams.prngMethod === 'ALEA'))) {
+        setPrng(newParams.prngMethod, newParams.prngSeed);
         setChiSquareResults(null); 
       }
       if ((key === 'simulationStartTime' || key === 'simulationEndTime') && !isRunning && currentStep === 1) {
@@ -293,7 +293,12 @@ export default function ParkSimPage() {
     });
   };
 
-  const handleActualStart = () => { // Renamed from handleStart to avoid conflict
+  const handleActualStart = () => { 
+    if (params.simulationStartTime >= params.simulationEndTime) {
+        toast({ title: "Error de Configuración", description: "La hora de inicio debe ser anterior a la hora de fin.", variant: "destructive"});
+        setIsRunning(false);
+        return;
+    }
     if (stats.simulationClock >= params.simulationEndTime) {
       addEvent("La simulación ya ha alcanzado la hora de finalización. Reinicie para comenzar de nuevo.");
       toast({ title: "Simulación Finalizada", description: "Reinicie para comenzar de nuevo.", variant: "default" });
@@ -308,7 +313,7 @@ export default function ParkSimPage() {
 
     setIsRunning(true);
     addEvent("Simulación iniciada/continuada.");
-    setPrng(params.prngMethod, params.lcgSeed); 
+    setPrng(params.prngMethod, params.prngSeed); 
     if(nextArrivalDueRef.current <=0 ) { 
         let meanArrival;
         if (stats.simulationClock >= PEAK_START_MINUTE && stats.simulationClock < PEAK_END_MINUTE) {
@@ -323,7 +328,10 @@ export default function ParkSimPage() {
   };
 
   const handleStartSimulationAndGoToStep2 = () => {
-    // Reset stats partially before starting a new run from step 1, but keep params.
+    if (params.simulationStartTime >= params.simulationEndTime) {
+        toast({ title: "Error al Iniciar", description: "La hora de inicio debe ser anterior a la hora de fin.", variant: "destructive"});
+        return;
+    }
     setStats(getInitialStats(params.simulationStartTime));
     setEventLog([]);
     setZones(JSON.parse(JSON.stringify(initialZones)));
@@ -332,11 +340,9 @@ export default function ParkSimPage() {
     nextArrivalDueRef.current = 0;
     eventIdCounter = 0;
     
-    handleActualStart(); // This will set isRunning true and schedule first arrival
-    if (stats.simulationClock < params.simulationEndTime) {
+    handleActualStart(); 
+    if (stats.simulationClock < params.simulationEndTime) { // Check again in case handleActualStart set isRunning to false
       setCurrentStep(2);
-    } else {
-      toast({ title: "Error al Iniciar", description: "La hora de inicio es igual o posterior a la hora de fin."});
     }
   };
 
@@ -345,7 +351,7 @@ export default function ParkSimPage() {
     addEvent("Simulación pausada.");
   };
 
-  const handleFullReset = () => { // Renamed from handleReset
+  const handleFullReset = () => { 
     setIsRunning(false);
     setParams(initialParams); 
     setZones(JSON.parse(JSON.stringify(initialZones)));
@@ -356,7 +362,7 @@ export default function ParkSimPage() {
     departedVehiclesCountRef.current = 0;
     nextArrivalDueRef.current = 0;
     eventIdCounter = 0;
-    setPrng(initialParams.prngMethod, initialParams.lcgSeed); 
+    setPrng(initialParams.prngMethod, initialParams.prngSeed); 
     addEvent("Simulación reiniciada a valores por defecto.");
     toast({ title: "Simulación Reiniciada", description: "Todos los parámetros y estados han sido restaurados." });
     updateStatistics(); 
@@ -372,12 +378,12 @@ export default function ParkSimPage() {
       toast({ title: "Prueba Chi-cuadrado", description: "Detenga la simulación para ejecutar la prueba.", variant: "destructive" });
       return;
     }
-    const currentSeedForTest = params.prngMethod === 'LCG' ? params.lcgSeed : undefined;
+    const seedForTest = (params.prngMethod !== 'Math.random') ? params.prngSeed : undefined;
     const results = await performChiSquareTest(
       params.chiSquareSampleSize,
       params.chiSquareNumBins,
       params.prngMethod,
-      currentSeedForTest 
+      seedForTest 
     );
     setChiSquareResults(results);
     toast({ title: "Prueba Chi-cuadrado Completada", description: `Método: ${params.prngMethod}, N=${params.chiSquareSampleSize}, K=${params.chiSquareNumBins}` });
@@ -386,7 +392,8 @@ export default function ParkSimPage() {
 
   const goToStep = (step: number) => {
     if (step === 1 && currentStep !== 1) {
-      handleFullReset(); 
+      // If moving to config from sim/results, pause if running. Full reset handled by dedicated button.
+      if(isRunning) handlePause();
     }
     if (currentStep === 2 && step === 3) { 
       if (isRunning) {
@@ -421,7 +428,6 @@ export default function ParkSimPage() {
                 params={params}
                 onParamChange={handleParamChange}
                 onRunChiSquareTest={handleRunChiSquareTest}
-                currentLcgSeed={getRandomLcgSeed()}
               />
               <div>
                 {chiSquareResults && <ChiSquareResultsDisplay results={chiSquareResults} />}
@@ -443,12 +449,12 @@ export default function ParkSimPage() {
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h2 className="text-3xl font-headline text-center">Paso 2: Simulación en Curso</h2>
                 <div className="flex space-x-2">
-                    <Button onClick={isRunning ? handlePause : handleActualStart} variant="outline" size="sm">
+                    <Button onClick={isRunning ? handlePause : handleActualStart} variant="outline" size="sm" disabled={stats.simulationClock >= params.simulationEndTime && !isRunning}>
                         {isRunning ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                         {isRunning ? 'Pausar' : (stats.simulationClock >= params.simulationEndTime ? 'Finalizada' : 'Continuar')}
                     </Button>
-                    <Button onClick={handleResetAndGoToConfig} variant="outline" size="sm">
-                        <RotateCcw className="mr-2 h-4 w-4" /> Reiniciar y Configurar
+                     <Button onClick={() => goToStep(1)} variant="outline" size="sm">
+                        <Settings2 className="mr-2 h-4 w-4" /> Volver a Configurar
                     </Button>
                 </div>
             </div>

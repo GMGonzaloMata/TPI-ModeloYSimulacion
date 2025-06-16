@@ -1,46 +1,61 @@
 
 import type { PrngMethodType } from '@/types';
+import { Random, MersenneTwister19937, AleaAlgorithm } from 'random-js';
 
-// LCG parameters (simple example - Numerical Recipes)
+// LCG parameters
 const LCG_A = 1664525;
 const LCG_C = 1013904223;
-const LCG_M = 2**32; // 4294967296
-let lcgSeedValue = 1; // Default seed
+const LCG_M = 2**32;
+let lcgInternalSeed = 1; // Specific to custom LCG
 
-export function setLcgSeed(seed: number) {
-  lcgSeedValue = Math.abs(Math.floor(seed)) || 1; // Ensure positive integer, default to 1
-}
+let currentPrngMethod: PrngMethodType = 'Math.random';
+let currentPrngInitSeed: number | undefined = undefined; // General seed used for PRNG initialization
 
-function lcg(): number {
-  lcgSeedValue = (LCG_A * lcgSeedValue + LCG_C) % LCG_M;
-  return lcgSeedValue / LCG_M;
-}
-
-let currentPrng: PrngMethodType = 'Math.random';
-let activeGenerator: () => number = Math.random;
+export let activeGenerator: () => number = Math.random;
+let randomJsInstance: Random | null = null;
 
 export function getActivePrngMethod(): PrngMethodType {
-  return currentPrng;
+  return currentPrngMethod;
 }
 
-export function getLcgSeed(): number {
-    return lcgSeedValue;
+export function getPrngInitializationSeed(): number | undefined {
+  return currentPrngInitSeed;
 }
 
-export function getActiveGenerator(): () => number {
-  return activeGenerator;
+// This function is mostly for the LCG specific case if its internal state is needed elsewhere,
+// for random-js instances, the state is encapsulated.
+export function getLcgInternalSeedValue(): number {
+    return lcgInternalSeed;
 }
+
 
 export function setPrng(method: PrngMethodType, seed?: number) {
-  currentPrng = method;
+  currentPrngMethod = method;
+  currentPrngInitSeed = seed; // Store the seed used for this PRNG setup
+
+  const effectiveSeed = seed !== undefined ? seed : Date.now();
+
   if (method === 'LCG') {
-    setLcgSeed(seed !== undefined ? seed : Date.now()); // Use current time as default seed if not provided
-    activeGenerator = lcg;
-  } else {
-    activeGenerator = Math.random; // Default to Math.random
+    lcgInternalSeed = Math.abs(Math.floor(effectiveSeed)) || 1;
+    activeGenerator = () => {
+      lcgInternalSeed = (LCG_A * lcgInternalSeed + LCG_C) % LCG_M;
+      return lcgInternalSeed / LCG_M;
+    };
+    randomJsInstance = null;
+  } else if (method === 'Mersenne-Twister') {
+    const engine = MersenneTwister19937.seed(effectiveSeed);
+    randomJsInstance = new Random(engine);
+    activeGenerator = () => randomJsInstance!.realZeroToOneExclusive();
+  } else if (method === 'ALEA') {
+    const engine = AleaAlgorithm.seed(effectiveSeed); // AleaAlgorithm is an engine function
+    randomJsInstance = new Random(engine);
+    activeGenerator = () => randomJsInstance!.realZeroToOneExclusive();
+  } else { // Math.random
+    activeGenerator = Math.random;
+    randomJsInstance = null;
+    currentPrngInitSeed = undefined; // Math.random is not seeded externally
   }
 }
-
 
 /**
  * Generates a random number following an exponential distribution.

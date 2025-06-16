@@ -17,7 +17,7 @@ export interface ParkingZoneData {
   isProjected?: boolean;
 }
 
-export type PrngMethodType = 'Math.random' | 'LCG';
+export type PrngMethodType = 'Math.random' | 'LCG' | 'Mersenne-Twister' | 'ALEA';
 
 export interface SimulationParams {
   morningArrivalMean: number;
@@ -29,7 +29,7 @@ export interface SimulationParams {
   enableProjectedZone: boolean;
   simulationSpeed: number; // multiplier for simulation tick speed
   prngMethod: PrngMethodType;
-  lcgSeed: number;
+  prngSeed: number; // Renamed from lcgSeed
   chiSquareSampleSize: number;
   chiSquareNumBins: number;
   simulationStartTime: number; // in minutes from midnight
@@ -64,7 +64,7 @@ export interface ChiSquareResult {
   N: number;
   K: number;
   prngMethodUsed: PrngMethodType;
-  lcgSeedUsed?: number;
+  prngSeedUsed?: number; // Renamed from lcgSeedUsed
   interpretation: string;
   observedFrequencies?: number[];
   expectedFrequencies?: number[];

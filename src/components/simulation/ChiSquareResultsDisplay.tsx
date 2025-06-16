@@ -12,7 +12,7 @@ interface ChiSquareResultsDisplayProps {
 }
 
 const ChiSquareResultsDisplay: React.FC<ChiSquareResultsDisplayProps> = ({ results }) => {
-  const { statistic, degreesOfFreedom, N, K, prngMethodUsed, lcgSeedUsed, interpretation, observedFrequencies, expectedFrequencies } = results;
+  const { statistic, degreesOfFreedom, N, K, prngMethodUsed, prngSeedUsed, interpretation, observedFrequencies, expectedFrequencies } = results;
 
   const chartData = observedFrequencies && expectedFrequencies ? observedFrequencies.map((obs, index) => ({
     name: `Intervalo ${index + 1}`,
@@ -20,7 +20,9 @@ const ChiSquareResultsDisplay: React.FC<ChiSquareResultsDisplayProps> = ({ resul
     Esperado: expectedFrequencies[index],
   })) : [];
 
-  const isPotentiallyGoodFit = statistic <= degreesOfFreedom * 2; // Very rough heuristic
+  // This is a very rough heuristic, not a formal statistical test result.
+  // A proper test involves comparing the statistic to a critical value from Chi-squared distribution table (or p-value).
+  const isPotentiallyGoodFit = degreesOfFreedom > 0 ? statistic <= degreesOfFreedom * 2.5 : false; // Avoid issues if df=0
 
   return (
     <Card className="shadow-lg mt-4">
@@ -30,7 +32,7 @@ const ChiSquareResultsDisplay: React.FC<ChiSquareResultsDisplayProps> = ({ resul
           Resultados Prueba Chi-cuadrado
         </CardTitle>
         <CardDescription>
-          PRNG: {prngMethodUsed} {prngMethodUsed === 'LCG' && lcgSeedUsed !== undefined ? `(Semilla: ${lcgSeedUsed})` : ''} | N={N}, K={K}
+          PRNG: {prngMethodUsed} {prngMethodUsed !== 'Math.random' && prngSeedUsed !== undefined ? `(Semilla: ${prngSeedUsed})` : ''} | N={N}, K={K}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 pt-2">
