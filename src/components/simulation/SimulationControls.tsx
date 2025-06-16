@@ -48,7 +48,6 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
   const handleIntegerInputChange = (key: keyof SimulationParams, event: React.ChangeEvent<HTMLInputElement>) => {
     let value = parseInt(event.target.value, 10);
     if (!isNaN(value)) {
-        // For 'mcg_m', ensure it's at least 1 if user clears and re-types.
         if (key === 'mcg_m' && value <= 0) value = 1;
         onParamChange(key, value as any);
     } else if (event.target.value === "") {
@@ -141,9 +140,11 @@ const SimulationControls: React.FC<SimulationControlsProps> = ({
         </div>
 
         <ControlGroup title="Tiempos de Llegada (media, minutos)">
-          <InputControl label="Mañana (antes del pico)" id="morningArrivalMean" value={params.morningArrivalMean} onChange={(e) => handleNumericInputChange('morningArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas antes de la hora pico."/>
-          <InputControl label="Pico (ej. 7:30-9:00 AM)" id="peakArrivalMean" value={params.peakArrivalMean} onChange={(e) => handleNumericInputChange('peakArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas durante la hora pico."/>
-          <InputControl label="Tarde (después del pico)" id="afternoonArrivalMean" value={params.afternoonArrivalMean} onChange={(e) => handleNumericInputChange('afternoonArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas después de la hora pico."/>
+          <InputControl label="Mañana (antes 7:30)" id="morningArrivalMean" value={params.morningArrivalMean} onChange={(e) => handleNumericInputChange('morningArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas antes del pico matutino (ej. antes de 7:30 AM)."/>
+          <InputControl label="Pico Mañana (7:30-9:00)" id="peakArrivalMean" value={params.peakArrivalMean} onChange={(e) => handleNumericInputChange('peakArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas durante el pico matutino (ej. 7:30-9:00 AM)."/>
+          <InputControl label="Intermedio (9:00-17:00)" id="afternoonArrivalMean" value={params.afternoonArrivalMean} onChange={(e) => handleNumericInputChange('afternoonArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas entre el pico matutino y el pico vespertino (ej. 9:00 AM - 5:00 PM)."/>
+          <InputControl label="Pico Tarde (17:00-18:00)" id="eveningPeakArrivalMean" value={params.eveningPeakArrivalMean} onChange={(e) => handleNumericInputChange('eveningPeakArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas durante el pico vespertino (ej. 5:00 PM - 6:00 PM)."/>
+          <InputControl label="Post-Pico Tarde (desp. 18:00)" id="lateAfternoonArrivalMean" value={params.lateAfternoonArrivalMean} onChange={(e) => handleNumericInputChange('lateAfternoonArrivalMean', e)} min={0.1} step={0.1} tooltip="Tiempo medio entre llegadas después del pico vespertino (ej. después de 6:00 PM)."/>
         </ControlGroup>
 
         <ControlGroup title="Duración Estacionamiento (minutos)">

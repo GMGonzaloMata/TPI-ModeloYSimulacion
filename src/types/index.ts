@@ -21,8 +21,10 @@ export type PrngMethodType = 'Math.random' | 'LCG' | 'Mersenne-Twister' | 'Mixed
 
 export interface SimulationParams {
   morningArrivalMean: number;
-  peakArrivalMean: number;
-  afternoonArrivalMean: number;
+  peakArrivalMean: number; // Morning peak
+  afternoonArrivalMean: number; // Between morning peak and evening peak
+  eveningPeakArrivalMean: number; // Evening peak (e.g., 17-18h)
+  lateAfternoonArrivalMean: number; // After evening peak
   parkingDurationMean: number; // in minutes
   parkingDurationStdDev: number; // in minutes
   enableReservations: boolean;
@@ -78,3 +80,4 @@ export interface ChiSquareResult {
   observedFrequencies?: number[];
   expectedFrequencies?: number[];
 }
+
